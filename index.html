@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Siem Reap Itinerary Explorer</title>
 
     <meta name="theme-color" content="#059669" />
@@ -32,7 +32,7 @@
     <!-- Leaflet Routing Machine CSS -->
     <link
       rel="stylesheet"
-      href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"
+      href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"
     />
 
     <style>
@@ -114,6 +114,18 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
       }
+      /* Mobile-safe full height (fixes browser address-bar jump) */
+      html,
+      body {
+        height: 100dvh !important;
+      }
+      /* Search input + visited card styling */
+      .card-visited {
+        opacity: 0.6;
+      }
+      .card-visited h3 {
+        text-decoration: line-through;
+      }
     </style>
   </head>
   <body
@@ -153,29 +165,44 @@
           </p>
         </div>
 
+        <!-- Search -->
+        <div class="px-6 pt-4 bg-white">
+          <input
+            id="search-input"
+            type="search"
+            placeholder="Search places..."
+            oninput="searchPlaces(this.value)"
+            class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+        </div>
+
         <!-- Category Filters -->
         <div
           class="px-6 py-4 flex gap-3 overflow-x-auto hide-scrollbar shrink-0 bg-white border-b border-gray-100"
         >
           <button
+            data-cat="All"
             onclick="filterPlaces('All')"
             class="filter-btn active shrink-0 bg-emerald-600 text-white shadow-md shadow-emerald-600/20 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:scale-105"
           >
             All
           </button>
           <button
+            data-cat="Temple"
             onclick="filterPlaces('Temple')"
             class="filter-btn shrink-0 bg-gray-50 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105"
           >
             Temples
           </button>
           <button
+            data-cat="Cafe"
             onclick="filterPlaces('Cafe')"
             class="filter-btn shrink-0 bg-gray-50 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105"
           >
             Cafes
           </button>
           <button
+            data-cat="Food & Nightlife"
             onclick="filterPlaces('Food & Nightlife')"
             class="filter-btn shrink-0 bg-gray-50 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105"
           >
@@ -248,6 +275,22 @@
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- Route Summary Card (distance, time, Google Maps hand-off) -->
+    <div
+      id="route-summary"
+      class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-white/95 backdrop-blur shadow-2xl rounded-2xl p-4 z-[900] border border-gray-200"
+    >
+      <p id="route-title" class="font-bold text-gray-900 truncate"></p>
+      <p id="route-stats" class="text-sm text-gray-600 mt-0.5"></p>
+      <a
+        id="route-gmaps"
+        target="_blank"
+        rel="noopener"
+        class="mt-3 block text-center bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-xl"
+        >Open in Google Maps</a
+      >
     </div>
 
     <!-- Toast Notification -->
@@ -327,7 +370,7 @@
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
     <script>
       // --- Data: Places in Siem Reap ---
@@ -572,6 +615,12 @@
       let routingControl = null;
       let userMarker = null;
       let currentFilter = "All";
+      let currentSearch = "";
+      // Visited places persist on the device (try/catch: storage can be blocked)
+      let visited = new Set();
+      try {
+        visited = new Set(JSON.parse(localStorage.getItem("sr-visited") || "[]"));
+      } catch (e) {}
 
       // Custom Map Icons (Slightly improved colors for the new theme)
       const icons = {
@@ -708,6 +757,7 @@
         L.control.zoom({ position: "topright" }).addTo(map);
 
         renderMarkersAndSidebar();
+        updateFilterButtons();
       }
 
       function getPopupHTML(place) {
@@ -722,8 +772,37 @@
                     <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     Route Here
                 </button>
+                <a href="https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}" target="_blank" rel="noopener" class="block text-center text-xs font-semibold text-emerald-700 mt-2 mb-1 hover:underline">Open in Google Maps</a>
             </div>
         `;
+      }
+
+      function visiblePlaces() {
+        const q = currentSearch.trim().toLowerCase();
+        return places.filter(
+          (p) =>
+            (currentFilter === "All" || p.cat === currentFilter) &&
+            (!q ||
+              p.name.toLowerCase().includes(q) ||
+              p.desc.toLowerCase().includes(q)),
+        );
+      }
+
+      function toggleVisited(id) {
+        visited.has(id) ? visited.delete(id) : visited.add(id);
+        try {
+          localStorage.setItem("sr-visited", JSON.stringify([...visited]));
+        } catch (e) {}
+        renderMarkersAndSidebar();
+      }
+
+      function searchPlaces(text) {
+        currentSearch = text;
+        renderMarkersAndSidebar();
+        if (markers.length > 0 && !routingControl) {
+          const group = new L.featureGroup(markers);
+          map.fitBounds(group.getBounds(), { padding: [60, 60], maxZoom: 16 });
+        }
       }
 
       function renderMarkersAndSidebar() {
@@ -732,16 +811,13 @@
         const listContainer = document.getElementById("places-list");
         listContainer.innerHTML = "";
 
-        const filteredPlaces =
-          currentFilter === "All"
-            ? places
-            : places.filter((p) => p.cat === currentFilter);
+        const filteredPlaces = visiblePlaces();
 
         if (filteredPlaces.length === 0) {
           listContainer.innerHTML = `
                 <div class="text-center py-10 flex flex-col items-center">
                     <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <p class="text-sm text-gray-500 font-medium">No places found in this category.</p>
+                    <p class="text-sm text-gray-500 font-medium">No places found.</p>
                 </div>`;
           return;
         }
@@ -759,9 +835,11 @@
 
           // Sidebar Card (Solid clean design)
           const style = catStyles[place.cat];
+          const isVisited = visited.has(place.id);
           const card = document.createElement("div");
           card.className =
-            "group bg-white border border-gray-200 rounded-2xl p-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md hover:border-emerald-300 relative overflow-hidden";
+            "group bg-white border border-gray-200 rounded-2xl p-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md hover:border-emerald-300 relative overflow-hidden" +
+            (isVisited ? " card-visited" : "");
           card.onclick = () => focusPlace(place);
 
           card.innerHTML = `
@@ -769,10 +847,16 @@
                     <span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${style.bg} ${style.text} border ${style.border}">
                         ${place.cat}
                     </span>
+                    <div class="flex gap-2">
+                    <button onclick="event.stopPropagation(); toggleVisited(${place.id})"
+                            class="p-2 rounded-full shadow-sm hover:scale-110 transition-transform ${isVisited ? "bg-emerald-600 text-white" : "bg-slate-50 text-gray-400 hover:text-emerald-600"}" title="${isVisited ? "Mark as not visited" : "Mark as visited"}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+                    </button>
                     <button onclick="event.stopPropagation(); getDirectionsTo(${place.lat}, ${place.lng}, '${place.name.replace(/'/g, "\\'")}')" 
                             class="p-2 rounded-full bg-slate-50 shadow-sm text-emerald-600 hover:bg-emerald-100 hover:scale-110 transition-transform" title="Get Directions">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                     </button>
+                    </div>
                 </div>
                 <div class="relative z-10">
                     <h3 class="font-bold text-gray-800 text-base mb-1 group-hover:text-emerald-700 transition-colors">${place.name}</h3>
@@ -783,25 +867,24 @@
         });
       }
 
+      // Style active/inactive filter pills explicitly (old class-swap broke after 1st click)
+      function updateFilterButtons() {
+        const on = ["bg-emerald-600", "text-white", "shadow-md", "shadow-emerald-600/20"];
+        const off = ["bg-gray-50", "text-gray-700", "border", "border-gray-200"];
+        document.querySelectorAll(".filter-btn").forEach((btn) => {
+          const cat = btn.dataset.cat;
+          if (!btn.dataset.label) btn.dataset.label = btn.innerText.trim();
+          const n = cat === "All" ? places.length : places.filter((p) => p.cat === cat).length;
+          btn.innerHTML = `${btn.dataset.label} <span class="opacity-70 text-xs">${n}</span>`;
+          const active = cat === currentFilter;
+          btn.classList.remove(...on, ...off);
+          btn.classList.add(...(active ? on : off));
+        });
+      }
+
       function filterPlaces(category) {
         currentFilter = category;
-
-        document.querySelectorAll(".filter-btn").forEach((btn) => {
-          if (
-            btn.innerText.includes(category) ||
-            (category === "All" && btn.innerText === "All")
-          ) {
-            btn.classList.replace("bg-white/60", "bg-emerald-600");
-            btn.classList.replace("text-gray-700", "text-white");
-            btn.classList.add("shadow-md", "shadow-emerald-600/20");
-            btn.classList.remove("border-gray-200", "border");
-          } else {
-            btn.classList.replace("bg-emerald-600", "bg-white/60");
-            btn.classList.replace("text-white", "text-gray-700");
-            btn.classList.remove("shadow-md", "shadow-emerald-600/20");
-            btn.classList.add("border-gray-200", "border");
-          }
-        });
+        updateFilterButtons();
 
         renderMarkersAndSidebar();
 
@@ -919,6 +1002,16 @@
               return null;
             },
           })
+            .on("routesfound", function (e) {
+              // Show distance/time summary (the turn list is hidden on mobile)
+              const sum = e.routes[0].summary;
+              showRouteSummary(
+                destName,
+                `${(sum.totalDistance / 1000).toFixed(1)} km · ${Math.round(sum.totalTime / 60)} min by car`,
+                destLat,
+                destLng,
+              );
+            })
             .on("routingerror", function (e) {
               // Fallback if the free public server is rate-limited
               showToast(
@@ -940,6 +1033,8 @@
               ).addTo(map);
 
               routingControl._fallbackLine = fallbackLine;
+              const km = map.distance([startLat, startLng], [destLat, destLng]) / 1000;
+              showRouteSummary(destName, `${km.toFixed(1)} km straight-line`, destLat, destLng);
               map.fitBounds(fallbackLine.getBounds(), { padding: [50, 50] });
             })
             .addTo(map);
@@ -951,7 +1046,16 @@
         }
       }
 
+      function showRouteSummary(name, stats, lat, lng) {
+        document.getElementById("route-title").innerText = name;
+        document.getElementById("route-stats").innerText = stats;
+        document.getElementById("route-gmaps").href =
+          `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+        document.getElementById("route-summary").classList.remove("hidden");
+      }
+
       function clearRoute() {
+        document.getElementById("route-summary").classList.add("hidden");
         if (routingControl) {
           if (routingControl._fallbackLine) {
             map.removeLayer(routingControl._fallbackLine);
@@ -1003,32 +1107,19 @@
         ],
       };
       // Inject manifest into the link tag we added in the head
-      document.getElementById("manifest").href =
-        "data:application/manifest+json;charset=utf-8," +
-        encodeURIComponent(JSON.stringify(manifestData));
+      // Real manifest.json when served over http(s); data URL only as a local fallback
+      document.getElementById("manifest").href = location.protocol.startsWith("http")
+        ? "manifest.json"
+        : "data:application/manifest+json;charset=utf-8," +
+          encodeURIComponent(JSON.stringify(manifestData));
 
       // 2. Register Service Worker Dynamically for Offline/PWA support
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
           // Define a basic network-first Service Worker
-          const swCode = `
-                    const CACHE_NAME = 'siem-reap-pwa-v1';
-                    self.addEventListener('install', event => {
-                        self.skipWaiting();
-                    });
-                    self.addEventListener('activate', event => {
-                        event.waitUntil(clients.claim());
-                    });
-                    self.addEventListener('fetch', event => {
-                        event.respondWith(
-                            fetch(event.request).catch(() => caches.match(event.request))
-                        );
-                    });
-                `;
-
+          // (Service worker now lives in sw.js: browsers reject blob: URLs and it needs to cache offline assets)
           // Create a blob URL for the service worker
-          const swBlob = new Blob([swCode], { type: "text/javascript" });
-          const swUrl = URL.createObjectURL(swBlob);
+          const swUrl = "./sw.js";
 
           navigator.serviceWorker
             .register(swUrl)
