@@ -306,7 +306,8 @@
         <label class="text-xs font-bold text-gray-500 uppercase">Note (optional)</label>
         <textarea id="pm-desc" rows="2" class="w-full mt-1 mb-3 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Why do you want to go?"></textarea>
         <label class="text-xs font-bold text-gray-500 uppercase">Location</label>
-        <input id="pm-coords" class="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="13.4125, 103.8670  or paste a Google Maps link" />
+        <input id="pm-coords" oninput="onCoordsInput(this.value)" class="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Paste a Google Maps link (short links OK) or 13.4125, 103.8670" />
+        <p id="pm-status" class="hidden text-xs mt-1.5 font-medium"></p>
         <div class="flex gap-2 mt-2 mb-4">
           <button onclick="startPickLocation()" class="flex-1 border border-emerald-600 text-emerald-700 text-sm font-semibold py-2 rounded-xl">📍 Pick on map</button>
           <button onclick="useMyLocation()" class="flex-1 border border-gray-300 text-gray-700 text-sm font-semibold py-2 rounded-xl">🎯 My location</button>
@@ -1339,6 +1340,91 @@
         }
       }
 
+      // --- Short Google Maps links (maps.app.goo.gl) ---
+      const SHORT_LINK = /https?:\/\/(?:maps\.app\.goo\.gl|goo\.gl\/maps|share\.google)\/\S+/i;
+      let resolveToken = 0;
+      let resolveTimer = null;
+
+      // Strict patterns only: safe to run on a whole HTML page
+      function strictParse(text) {
+        const pats = [/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /@(-?\d+\.\d+),(-?\d+\.\d+)/, /[?&]center=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/];
+        for (const re of pats) {
+          const m = (text || "").match(re);
+          if (m) {
+            const r = fix(parseFloat(m[1]), parseFloat(m[2]));
+            if (r) return r;
+          }
+        }
+        return null;
+      }
+
+      function nameFromUrl(u) {
+        const m = (u || "").match(/\/maps\/place\/([^/@?]+)/);
+        if (!m) return "";
+        try { return decodeURIComponent(m[1].replace(/\+/g, " ")); } catch (e) { return ""; }
+      }
+
+      // Browsers cannot follow Google's redirect themselves (CORS), so go through free public proxies
+      async function resolveShortLink(url) {
+        const timeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+        const attempts = [
+          async () => {
+            const j = await (await fetch("https://api.allorigins.win/get?url=" + encodeURIComponent(url))).json();
+            return [j.status && j.status.url, j.contents];
+          },
+          async () => {
+            const r = await fetch("https://corsproxy.io/?url=" + encodeURIComponent(url));
+            return [r.url, await r.text()];
+          },
+          async () => {
+            const r = await fetch("https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(url));
+            return [r.url, await r.text()];
+          },
+        ];
+        for (const attempt of attempts) {
+          try {
+            const [finalUrl, body] = await timeout(attempt(), 9000);
+            const fromUrl = finalUrl && /google\./.test(finalUrl) ? finalUrl : "";
+            const pos = strictParse(decodeURIComponent((fromUrl || "").replace(/%(?![0-9a-f]{2})/gi, "%25"))) || strictParse(body);
+            if (pos) {
+              const t = ((body || "").match(/<title>([^<]+)<\/title>/i) || [])[1] || "";
+              const title = /^\s*(google )?maps\s*$/i.test(t) ? "" : t.replace(/\s*-\s*Google Maps\s*$/i, "").trim();
+              return { ...pos, name: nameFromUrl(fromUrl) || title };
+            }
+          } catch (e) {}
+        }
+        return null;
+      }
+
+      function setPmStatus(text, ok) {
+        const el = document.getElementById("pm-status");
+        el.innerText = text;
+        el.className = "text-xs mt-1.5 font-medium " + (text ? (ok === true ? "text-emerald-700" : ok === false ? "text-rose-600" : "text-gray-500") : "hidden");
+      }
+
+      // Resolve a pasted short link and fill in the location (and the name if empty)
+      async function resolveIntoForm(raw) {
+        const token = ++resolveToken;
+        setPmStatus("Reading link…", null);
+        const r = await resolveShortLink(raw.match(SHORT_LINK)[0]);
+        if (token !== resolveToken) return false;
+        if (!r) {
+          setPmStatus("Couldn't open this short link automatically. Open it, copy the full address from the browser bar (or long-press the spot for coordinates) and paste that here.", false);
+          return false;
+        }
+        document.getElementById("pm-coords").value = `${r.lat.toFixed(6)}, ${r.lng.toFixed(6)}`;
+        const nameEl = document.getElementById("pm-name");
+        if (!nameEl.value.trim() && r.name) nameEl.value = r.name;
+        setPmStatus(`Location found${r.name ? ": " + r.name : ""} ✓`, true);
+        return true;
+      }
+
+      function onCoordsInput(v) {
+        clearTimeout(resolveTimer);
+        if (!SHORT_LINK.test(v)) return setPmStatus("", null);
+        resolveTimer = setTimeout(() => resolveIntoForm(v), 400);
+      }
+
       // --- Add your own places ---
       let editingId = null;
 
@@ -1408,6 +1494,7 @@
         m.classList.remove("flex");
         if (reset) {
           ["pm-name", "pm-desc", "pm-coords"].forEach((i) => (document.getElementById(i).value = ""));
+          setPmStatus("", null);
           editingId = null;
         }
       }
@@ -1443,9 +1530,17 @@
         );
       }
 
-      function savePlace() {
-        const name = document.getElementById("pm-name").value.trim();
-        const pos = parseLatLng(document.getElementById("pm-coords").value);
+      async function savePlace() {
+        let name = document.getElementById("pm-name").value.trim();
+        let pos = parseLatLng(document.getElementById("pm-coords").value);
+        const rawInput = document.getElementById("pm-coords").value.trim();
+        if (!pos && SHORT_LINK.test(rawInput)) {
+          // Link pasted but not resolved yet (or failed earlier): try now
+          if (await resolveIntoForm(rawInput)) {
+            pos = parseLatLng(document.getElementById("pm-coords").value);
+            name = document.getElementById("pm-name").value.trim();
+          }
+        }
         if (!name) return showToast("Please enter a name.", "error");
         if (!pos) {
           const raw = document.getElementById("pm-coords").value.trim();
