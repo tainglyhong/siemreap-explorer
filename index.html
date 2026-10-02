@@ -76,6 +76,10 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Mobile specific enhancements */
+        .touch-none { touch-action: none; }
+        #sidebar-panel { will-change: height; }
     </style>
 </head>
 <body class="bg-slate-50 text-gray-800 w-screen h-screen overflow-hidden relative font-sans antialiased">
@@ -87,11 +91,12 @@
     <div class="absolute inset-0 z-10 pointer-events-none flex flex-col md:flex-row items-end md:items-start md:p-6 justify-between">
         
         <!-- Sidebar / Bottom Sheet Panel -->
-        <div class="pointer-events-auto w-full md:w-[420px] bg-white/80 backdrop-blur-xl md:rounded-3xl rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] md:shadow-2xl border border-white/60 h-[65vh] md:h-full max-h-[850px] flex flex-col transition-all duration-300 relative overflow-hidden">
+        <div id="sidebar-panel" class="pointer-events-auto w-full md:w-[420px] bg-white/80 backdrop-blur-xl md:rounded-3xl rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] md:shadow-2xl border border-white/60 h-[40vh] md:h-full max-h-[850px] flex flex-col transition-all duration-300 md:!transition-none relative overflow-hidden z-30 md:z-auto">
             
             <!-- Mobile Drag Handle -->
-            <div class="w-full flex justify-center pt-3 pb-1 md:hidden">
-                <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
+            <div id="mobile-handle" class="w-full flex flex-col items-center pt-3 pb-1 md:hidden cursor-pointer touch-none active:bg-gray-100/50 transition-colors">
+                <div class="w-12 h-1.5 bg-gray-300 rounded-full mb-1"></div>
+                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Swipe</span>
             </div>
 
             <!-- Header -->
@@ -121,7 +126,7 @@
         </div>
 
         <!-- Floating Action Buttons (Right Side) -->
-        <div class="pointer-events-auto absolute bottom-24 right-6 md:bottom-6 md:relative md:flex flex-col gap-3 z-20">
+        <div class="pointer-events-auto absolute top-24 right-4 md:top-auto md:bottom-6 md:right-6 md:relative md:flex flex-col gap-3 z-20">
             <button id="clear-route-btn" onclick="clearRoute()" class="hidden bg-rose-500/90 backdrop-blur-md hover:bg-rose-600 text-white font-semibold py-3 px-5 rounded-2xl shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 border border-rose-400/50">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -250,6 +255,60 @@
         L.control.zoom({ position: 'topright' }).addTo(map);
 
         renderMarkersAndSidebar();
+        initMobileSwipePanel();
+    }
+
+    function initMobileSwipePanel() {
+        const handle = document.getElementById('mobile-handle');
+        const panel = document.getElementById('sidebar-panel');
+        if (!handle || !panel) return;
+
+        let startY = 0;
+        let startHeight = 0;
+        
+        // Touch Dragging Logic
+        handle.addEventListener('touchstart', (e) => {
+            startY = e.touches[0].clientY;
+            startHeight = panel.getBoundingClientRect().height;
+            panel.style.transition = 'none'; // Disable transition for instant 1:1 dragging
+        }, { passive: true });
+
+        handle.addEventListener('touchmove', (e) => {
+            const deltaY = startY - e.touches[0].clientY;
+            let newHeight = startHeight + deltaY;
+            
+            const minHeight = window.innerHeight * 0.20;
+            const maxHeight = window.innerHeight * 0.85;
+            
+            if (newHeight > maxHeight) newHeight = maxHeight;
+            if (newHeight < minHeight) newHeight = minHeight;
+            
+            panel.style.height = `${newHeight}px`;
+        }, { passive: true });
+
+        handle.addEventListener('touchend', (e) => {
+            panel.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+            const currentHeight = panel.getBoundingClientRect().height;
+            const threshold = window.innerHeight * 0.5;
+            
+            // Snap to top or bottom based on drag threshold
+            if (currentHeight > threshold) {
+                panel.style.height = '85vh';
+            } else {
+                panel.style.height = '35vh';
+            }
+        });
+        
+        // Tap to Toggle Logic
+        handle.addEventListener('click', () => {
+             panel.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+             const currentHeight = panel.getBoundingClientRect().height;
+             if(currentHeight < window.innerHeight * 0.5) {
+                 panel.style.height = '85vh';
+             } else {
+                 panel.style.height = '35vh';
+             }
+        });
     }
 
     function getPopupHTML(place) {
@@ -349,12 +408,21 @@
     }
 
     function focusPlace(place) {
-        // Offset view for sidebar
+        // Offset view for sidebar and mobile panel
         const paddingLeft = window.innerWidth > 768 ? 400 : 0;
-        const targetPoint = map.project([place.lat, place.lng], 15).subtract([paddingLeft / 2, 0]);
+        const paddingBottom = window.innerWidth <= 768 ? (window.innerHeight * 0.35) : 0;
+        
+        const targetPoint = map.project([place.lat, place.lng], 15).subtract([paddingLeft / 2, -paddingBottom / 2]);
         const targetLatLng = map.unproject(targetPoint, 15);
 
         map.flyTo(targetLatLng, 15, { duration: 1.5 });
+        
+        // Auto-collapse panel on mobile so they can see the map clearly
+        if (window.innerWidth < 768) {
+            const panel = document.getElementById('sidebar-panel');
+            panel.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+            panel.style.height = '35vh';
+        }
         
         setTimeout(() => {
             place.marker.openPopup();
@@ -362,6 +430,13 @@
     }
 
     function getDirectionsTo(destLat, destLng, destName) {
+        // Auto-collapse panel on mobile to see the route being drawn
+        if (window.innerWidth < 768) {
+            const panel = document.getElementById('sidebar-panel');
+            panel.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+            panel.style.height = '35vh';
+        }
+
         document.getElementById('loading-overlay').classList.remove('hidden');
         document.getElementById('loading-overlay').classList.add('flex');
 
