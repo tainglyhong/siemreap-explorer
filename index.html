@@ -367,7 +367,7 @@
     <!-- Toast Notification -->
     <div
       id="toast"
-      class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-gray-900/90 backdrop-blur-md text-white px-6 py-3.5 rounded-2xl shadow-2xl transition-all duration-500 -translate-y-[150%] opacity-0 z-[60] flex items-center gap-3 border border-gray-700"
+      class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-gray-900/90 backdrop-blur-md text-white px-6 py-3.5 rounded-2xl shadow-2xl transition-all duration-500 -translate-y-[150%] opacity-0 z-[100] flex items-center gap-3 border border-gray-700"
     >
       <!-- Icons ... -->
       <svg
@@ -1351,16 +1351,29 @@
       }
 
       // Accepts "13.41, 103.86" or a Google Maps link containing coordinates
+      // Also understands degrees-minutes-seconds (13°21'17"N 103°51'22"E), N/S/E/W suffixes, and lng,lat order
       function parseLatLng(text) {
-        const pats = [/@(-?\d+\.\d+),(-?\d+\.\d+)/, /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /[?&](?:q|ll|query|destination)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/, /(-?\d+\.\d+)\s*[,\s]\s*(-?\d+\.\d+)/];
+        text = decodeURIComponent((text || "").replace(/%(?![0-9a-f]{2})/gi, "%25"));
+        const sign = (v, h) => (/[SW]/i.test(h) ? -v : v);
+        let m = text.match(/(\d+)\s*°\s*(\d+)\s*['′]\s*(\d+(?:\.\d+)?)\s*["″]?\s*([NS])[\s,;]*(\d+)\s*°\s*(\d+)\s*['′]\s*(\d+(?:\.\d+)?)\s*["″]?\s*([EW])/i);
+        if (m) return fix(sign(+m[1] + m[2] / 60 + m[3] / 3600, m[4]), sign(+m[5] + m[6] / 60 + m[7] / 3600, m[8]));
+        m = text.match(/(\d+\.\d+)\s*°?\s*([NS])[\s,;]*(\d+\.\d+)\s*°?\s*([EW])/i);
+        if (m) return fix(sign(+m[1], m[2]), sign(+m[3], m[4]));
+        // !3d!4d is the real pin; "@" is only the map view centre (can be far off at low zoom), so it comes second
+        const pats = [/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /@(-?\d+\.\d+),(-?\d+\.\d+)/, /[?&](?:q|ll|query|destination|center)=(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/, /(-?\d+\.\d+)\s*[,;\s]\s*(-?\d+\.\d+)/];
         for (const re of pats) {
-          const m = text.match(re);
+          m = text.match(re);
           if (m) {
-            const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
-            if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng };
+            const r = fix(parseFloat(m[1]), parseFloat(m[2]));
+            if (r) return r;
           }
         }
         return null;
+      }
+      // Validate; swap if the pair was pasted as "lng, lat"
+      function fix(lat, lng) {
+        if (Math.abs(lat) > 90 && Math.abs(lng) <= 90) [lat, lng] = [lng, lat];
+        return Math.abs(lat) <= 90 && Math.abs(lng) <= 180 ? { lat, lng } : null;
       }
 
       function saveCustomPlaces() {
@@ -1434,7 +1447,13 @@
         const name = document.getElementById("pm-name").value.trim();
         const pos = parseLatLng(document.getElementById("pm-coords").value);
         if (!name) return showToast("Please enter a name.", "error");
-        if (!pos) return showToast("Set a location: pick on map, use GPS, or paste coordinates / a full Google Maps link.", "error");
+        if (!pos) {
+          const raw = document.getElementById("pm-coords").value.trim();
+          if (!raw) return showToast("Location is empty. Tap “Pick on map” or “My location”, or paste coordinates.", "error");
+          if (/goo\.gl|maps\.app|share\.google/i.test(raw))
+            return showToast("Short Google links can't be read. Open it, copy the full link from the address bar, or long-press the spot in Google Maps and paste the coordinates.", "error");
+          return showToast("Couldn't find coordinates in that text. Try 13.41250, 103.86700 or use “Pick on map”.", "error");
+        }
         const data = {
           name: esc(name),
           cat: document.getElementById("pm-cat").value,
