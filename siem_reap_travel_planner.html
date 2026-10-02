@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Siem Reap Itinerary Explorer</title>
     
+    <meta name="theme-color" content="#059669">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/059669/ffffff.png?text=SR">
+    <link rel="manifest" id="manifest">
+    
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -443,6 +447,54 @@
     }
 
     window.onload = initMap;
+    </script>
+
+    <script>
+        // 1. Generate PWA Manifest Dynamically
+        const manifestData = {
+            "name": "Siem Reap Travel Planner",
+            "short_name": "SiemReapApp",
+            "description": "Your ultimate 2-day 1-night travel planner for Siem Reap.",
+            "start_url": window.location.href.split('?')[0],
+            "display": "standalone",
+            "background_color": "#f8fafc",
+            "theme_color": "#059669",
+            "icons": [
+                { "src": "https://placehold.co/192x192/059669/ffffff.png?text=SR", "sizes": "192x192", "type": "image/png" },
+                { "src": "https://placehold.co/512x512/059669/ffffff.png?text=SR", "sizes": "512x512", "type": "image/png" }
+            ]
+        };
+        // Inject manifest into the link tag we added in the head
+        document.getElementById('manifest').href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestData));
+
+        // 2. Register Service Worker Dynamically for Offline/PWA support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Define a basic network-first Service Worker
+                const swCode = `
+                    const CACHE_NAME = 'siem-reap-pwa-v1';
+                    self.addEventListener('install', event => {
+                        self.skipWaiting();
+                    });
+                    self.addEventListener('activate', event => {
+                        event.waitUntil(clients.claim());
+                    });
+                    self.addEventListener('fetch', event => {
+                        event.respondWith(
+                            fetch(event.request).catch(() => caches.match(event.request))
+                        );
+                    });
+                `;
+                
+                // Create a blob URL for the service worker
+                const swBlob = new Blob([swCode], { type: 'text/javascript' });
+                const swUrl = URL.createObjectURL(swBlob);
+                
+                navigator.serviceWorker.register(swUrl)
+                    .then(reg => console.log('PWA Service Worker registered successfully.'))
+                    .catch(err => console.info('PWA Service Worker skipped (expected if running in sandboxed iframe environment).'));
+            });
+        }
     </script>
 </body>
 </html>
