@@ -166,14 +166,20 @@
         </div>
 
         <!-- Search -->
-        <div class="px-6 pt-4 bg-white">
+        <div class="px-6 pt-4 bg-white flex gap-2">
           <input
             id="search-input"
             type="search"
             placeholder="Search places..."
             oninput="searchPlaces(this.value)"
-            class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            class="flex-1 min-w-0 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
+          <button
+            onclick="openAddPlace()"
+            class="shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 rounded-xl shadow-md"
+          >
+            + Add
+          </button>
         </div>
 
         <!-- Category Filters -->
@@ -207,6 +213,13 @@
             class="filter-btn shrink-0 bg-gray-50 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105"
           >
             Food & Nightlife
+          </button>
+          <button
+            data-cat="Hotel"
+            onclick="filterPlaces('Hotel')"
+            class="filter-btn shrink-0 bg-gray-50 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105"
+          >
+            Hotels
           </button>
         </div>
 
@@ -275,6 +288,40 @@
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- Add / Edit place dialog -->
+    <div id="place-modal" class="hidden fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-[80] items-end md:items-center justify-center">
+      <div class="bg-white w-full md:w-[440px] rounded-t-3xl md:rounded-3xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl max-h-[92dvh] overflow-y-auto">
+        <h2 id="place-modal-title" class="text-xl font-extrabold text-gray-900 mb-4">Add a place</h2>
+        <label class="text-xs font-bold text-gray-500 uppercase">Name</label>
+        <input id="pm-name" class="w-full mt-1 mb-3 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="e.g. Banteay Samre" />
+        <label class="text-xs font-bold text-gray-500 uppercase">Category</label>
+        <select id="pm-cat" class="w-full mt-1 mb-3 border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white">
+          <option value="Temple">Temple</option>
+          <option value="Cafe">Cafe</option>
+          <option value="Food & Nightlife">Food &amp; Nightlife</option>
+          <option value="Hotel">Hotel</option>
+        </select>
+        <label class="text-xs font-bold text-gray-500 uppercase">Note (optional)</label>
+        <textarea id="pm-desc" rows="2" class="w-full mt-1 mb-3 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Why do you want to go?"></textarea>
+        <label class="text-xs font-bold text-gray-500 uppercase">Location</label>
+        <input id="pm-coords" class="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="13.4125, 103.8670  or paste a Google Maps link" />
+        <div class="flex gap-2 mt-2 mb-4">
+          <button onclick="startPickLocation()" class="flex-1 border border-emerald-600 text-emerald-700 text-sm font-semibold py-2 rounded-xl">📍 Pick on map</button>
+          <button onclick="useMyLocation()" class="flex-1 border border-gray-300 text-gray-700 text-sm font-semibold py-2 rounded-xl">🎯 My location</button>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="closePlaceModal()" class="flex-1 bg-gray-100 text-gray-700 font-semibold py-2.5 rounded-xl">Cancel</button>
+          <button onclick="savePlace()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-xl">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pick-on-map banner -->
+    <div id="pick-banner" class="hidden fixed top-6 left-1/2 -translate-x-1/2 bg-gray-900/90 text-white rounded-2xl shadow-2xl px-5 py-3 z-[950] flex items-center gap-4">
+      <span class="text-sm font-medium">Tap the map to set the location</span>
+      <button onclick="cancelPick()" class="text-sm font-bold text-rose-300">Cancel</button>
     </div>
 
     <!-- Turn-by-turn banner (shown while navigating) -->
@@ -645,6 +692,13 @@
       try {
         visited = new Set(JSON.parse(localStorage.getItem("sr-visited") || "[]"));
       } catch (e) {}
+      // My own places (added in the app) are saved on this device and merged into the list
+      try {
+        JSON.parse(localStorage.getItem("sr-custom-places") || "[]").forEach((p) => {
+          p.custom = true;
+          places.push(p);
+        });
+      } catch (e) {}
 
       // Custom Map Icons (Slightly improved colors for the new theme)
       const icons = {
@@ -885,6 +939,7 @@
                 <div class="relative z-10">
                     <h3 class="font-bold text-gray-800 text-base mb-1 group-hover:text-emerald-700 transition-colors">${place.name}</h3>
                     <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed font-medium">${place.desc}</p>
+                    ${place.custom ? `<div class="flex gap-4 mt-2 text-xs font-semibold"><span class="text-emerald-700">★ My place</span><button onclick="event.stopPropagation(); openAddPlace(${place.id})" class="text-blue-600">Edit</button><button onclick="event.stopPropagation(); deletePlace(${place.id})" class="text-rose-600">Delete</button></div>` : ""}
                 </div>
             `;
           listContainer.appendChild(card);
@@ -1282,6 +1337,137 @@
             paddingTopLeft: [paddingLeft, 50],
           });
         }
+      }
+
+      // --- Add your own places ---
+      let editingId = null;
+
+      // Escape user text (it is rendered inside HTML templates and inline onclick strings)
+      function esc(t) {
+        return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "’").replace(/\\/g, "/");
+      }
+      function unesc(t) {
+        return t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+      }
+
+      // Accepts "13.41, 103.86" or a Google Maps link containing coordinates
+      function parseLatLng(text) {
+        const pats = [/@(-?\d+\.\d+),(-?\d+\.\d+)/, /!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /[?&](?:q|ll|query|destination)=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/, /(-?\d+\.\d+)\s*[,\s]\s*(-?\d+\.\d+)/];
+        for (const re of pats) {
+          const m = text.match(re);
+          if (m) {
+            const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+            if (Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { lat, lng };
+          }
+        }
+        return null;
+      }
+
+      function saveCustomPlaces() {
+        try {
+          localStorage.setItem(
+            "sr-custom-places",
+            JSON.stringify(places.filter((p) => p.custom).map(({ marker, ...rest }) => rest)),
+          );
+        } catch (e) {
+          showToast("Could not save on this device (storage blocked).", "error");
+        }
+      }
+
+      function openAddPlace(id) {
+        const place = id ? places.find((p) => p.id === id) : null;
+        editingId = place ? place.id : editingId;
+        document.getElementById("place-modal-title").innerText = editingId ? "Edit place" : "Add a place";
+        if (place) {
+          document.getElementById("pm-name").value = unesc(place.name);
+          document.getElementById("pm-cat").value = place.cat;
+          document.getElementById("pm-desc").value = unesc(place.desc);
+          document.getElementById("pm-coords").value = `${place.lat}, ${place.lng}`;
+        }
+        const m = document.getElementById("place-modal");
+        m.classList.remove("hidden");
+        m.classList.add("flex");
+      }
+
+      function closePlaceModal(reset = true) {
+        const m = document.getElementById("place-modal");
+        m.classList.add("hidden");
+        m.classList.remove("flex");
+        if (reset) {
+          ["pm-name", "pm-desc", "pm-coords"].forEach((i) => (document.getElementById(i).value = ""));
+          editingId = null;
+        }
+      }
+
+      function startPickLocation() {
+        closePlaceModal(false); // keep typed text while choosing on the map
+        showMap();
+        document.getElementById("pick-banner").classList.remove("hidden");
+        map.getContainer().style.cursor = "crosshair";
+        map.once("click", (e) => {
+          document.getElementById("pm-coords").value = `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+          finishPick();
+        });
+      }
+
+      function finishPick() {
+        map.getContainer().style.cursor = "";
+        document.getElementById("pick-banner").classList.add("hidden");
+        openAddPlace();
+      }
+
+      function cancelPick() {
+        map.off("click");
+        finishPick();
+      }
+
+      function useMyLocation() {
+        if (!navigator.geolocation) return showToast("Geolocation is not supported by your browser.", "error");
+        navigator.geolocation.getCurrentPosition(
+          (pos) => (document.getElementById("pm-coords").value = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`),
+          () => showToast("Could not get your location.", "error"),
+          { enableHighAccuracy: true, timeout: 10000 },
+        );
+      }
+
+      function savePlace() {
+        const name = document.getElementById("pm-name").value.trim();
+        const pos = parseLatLng(document.getElementById("pm-coords").value);
+        if (!name) return showToast("Please enter a name.", "error");
+        if (!pos) return showToast("Set a location: pick on map, use GPS, or paste coordinates / a full Google Maps link.", "error");
+        const data = {
+          name: esc(name),
+          cat: document.getElementById("pm-cat").value,
+          desc: esc(document.getElementById("pm-desc").value.trim() || "Added by me."),
+          lat: pos.lat,
+          lng: pos.lng,
+        };
+        let place = editingId ? places.find((p) => p.id === editingId) : null;
+        if (place) Object.assign(place, data);
+        else {
+          place = { id: Date.now(), custom: true, ...data };
+          places.push(place);
+        }
+        saveCustomPlaces();
+        closePlaceModal();
+        // Show everything so the new place is visible, then jump to it
+        currentFilter = "All";
+        currentSearch = "";
+        document.getElementById("search-input").value = "";
+        renderMarkersAndSidebar();
+        updateFilterButtons();
+        showToast("Place saved.", "success");
+        focusPlace(place);
+      }
+
+      function deletePlace(id) {
+        const i = places.findIndex((p) => p.id === id);
+        if (i < 0 || !confirm(`Delete "${unesc(places[i].name)}"?`)) return;
+        places.splice(i, 1);
+        visited.delete(id);
+        saveCustomPlaces();
+        renderMarkersAndSidebar();
+        updateFilterButtons();
       }
 
       window.onload = initMap;
