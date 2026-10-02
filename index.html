@@ -1,317 +1,716 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Siem Reap Itinerary Explorer</title>
-    
-    <meta name="theme-color" content="#059669">
-    <link rel="apple-touch-icon" href="https://placehold.co/192x192/059669/ffffff.png?text=SR">
-    <link rel="manifest" id="manifest">
-    
+
+    <meta name="theme-color" content="#059669" />
+    <link
+      rel="apple-touch-icon"
+      href="https://placehold.co/192x192/059669/ffffff.png?text=SR"
+    />
+    <link rel="manifest" id="manifest" />
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
     <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+
     <!-- Leaflet Routing Machine CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"
+    />
 
     <style>
-        body { font-family: 'Inter', sans-serif; overflow: hidden; }
-        /* Glassmorphism routing container */
+      body {
+        font-family: "Inter", sans-serif;
+        overflow: hidden;
+      }
+      /* Glassmorphism routing container */
+      .leaflet-routing-container {
+        background: rgba(255, 255, 255, 0.85) !important;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+        border-radius: 1rem !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+        padding: 1rem !important;
+        color: #1f2937 !important;
+        max-height: 40vh;
+        overflow-y: auto;
+        margin-top: 1rem !important;
+        margin-right: 1rem !important;
+        transition: all 0.3s ease;
+      }
+      @media (max-width: 768px) {
         .leaflet-routing-container {
-            background: rgba(255, 255, 255, 0.85) !important;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.5) !important;
-            border-radius: 1rem !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
-            padding: 1rem !important;
-            color: #1f2937 !important;
-            max-height: 40vh;
-            overflow-y: auto;
-            margin-top: 1rem !important;
-            margin-right: 1rem !important;
-            transition: all 0.3s ease;
-        }
-        @media (max-width: 768px) {
-            .leaflet-routing-container { display: none !important; } /* Hide on mobile to save map space */
-        }
-        /* Custom Zoom Controls */
-        .leaflet-control-zoom {
-            border: none !important;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
-            border-radius: 0.75rem !important;
-            overflow: hidden;
-        }
-        .leaflet-control-zoom a {
-            background-color: rgba(255, 255, 255, 0.9) !important;
-            backdrop-filter: blur(4px);
-            color: #374151 !important;
-        }
-        .leaflet-control-zoom a:hover { background-color: #fff !important; color: #059669 !important; }
-        
-        /* Custom Glass Popups */
-        .glass-popup .leaflet-popup-content-wrapper {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(255,255,255,0.5);
-            border-radius: 1rem;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-            padding: 0;
-        }
-        .glass-popup .leaflet-popup-tip { background: rgba(255, 255, 255, 0.95); }
-        
-        /* Hide scrollbar for layout */
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* Custom standard scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+          display: none !important;
+        } /* Hide on mobile to save map space */
+      }
+      /* Custom Zoom Controls */
+      .leaflet-control-zoom {
+        border: none !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+        border-radius: 0.75rem !important;
+        overflow: hidden;
+      }
+      .leaflet-control-zoom a {
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        backdrop-filter: blur(4px);
+        color: #374151 !important;
+      }
+      .leaflet-control-zoom a:hover {
+        background-color: #fff !important;
+        color: #059669 !important;
+      }
 
-        /* Mobile specific enhancements */
-        .touch-none { touch-action: none; }
-        #sidebar-panel { will-change: height; }
+      /* Custom Glass Popups */
+      .glass-popup .leaflet-popup-content-wrapper {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 1rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        padding: 0;
+      }
+      .glass-popup .leaflet-popup-tip {
+        background: rgba(255, 255, 255, 0.95);
+      }
+
+      /* Hide scrollbar for layout */
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      /* Custom standard scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
     </style>
-</head>
-<body class="bg-slate-50 text-gray-800 w-screen h-screen overflow-hidden relative font-sans antialiased">
-
-    <!-- Fullscreen Map -->
-    <div id="map" class="absolute inset-0 w-full h-full z-0"></div>
-
-    <!-- Glassmorphism Floating UI Layer -->
-    <div class="absolute inset-0 z-10 pointer-events-none flex flex-col md:flex-row items-end md:items-start md:p-6 justify-between">
-        
-        <!-- Sidebar / Bottom Sheet Panel -->
-        <div id="sidebar-panel" class="pointer-events-auto w-full md:w-[420px] bg-white/80 backdrop-blur-xl md:rounded-3xl rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] md:shadow-2xl border border-white/60 h-[40vh] md:h-full max-h-[850px] flex flex-col transition-all duration-300 md:!transition-none relative overflow-hidden z-30 md:z-auto">
-            
-            <!-- Mobile Drag Handle -->
-            <div id="mobile-handle" class="w-full flex flex-col items-center pt-3 pb-1 md:hidden cursor-pointer touch-none active:bg-gray-100/50 transition-colors">
-                <div class="w-12 h-1.5 bg-gray-300 rounded-full mb-1"></div>
-                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Swipe</span>
-            </div>
-
-            <!-- Header -->
-            <div class="px-6 py-4 md:pt-8 md:pb-5 bg-gradient-to-b from-white/90 to-transparent">
-                <h1 class="text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-teal-500 drop-shadow-sm">Siem Reap Explorer</h1>
-                <p class="text-sm font-medium text-gray-500 mt-1 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    2 Days, 1 Night Premium Itinerary
-                </p>
-            </div>
-
-            <!-- Category Filters -->
-            <div class="px-6 py-2 flex gap-3 overflow-x-auto hide-scrollbar shrink-0">
-                <button onclick="filterPlaces('All')" class="filter-btn active shrink-0 bg-emerald-600 text-white shadow-md shadow-emerald-600/20 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:scale-105">All</button>
-                <button onclick="filterPlaces('Temple')" class="filter-btn shrink-0 bg-white/60 text-gray-700 hover:bg-white px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105">Temples</button>
-                <button onclick="filterPlaces('Cafe')" class="filter-btn shrink-0 bg-white/60 text-gray-700 hover:bg-white px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105">Cafes</button>
-                <button onclick="filterPlaces('Food & Nightlife')" class="filter-btn shrink-0 bg-white/60 text-gray-700 hover:bg-white px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105">Food & Nightlife</button>
-            </div>
-
-            <!-- Places List -->
-            <div id="places-list" class="flex-1 overflow-y-auto px-6 py-4 space-y-4 pb-24 md:pb-6 relative z-0">
-                <!-- Cards populated by JS -->
-            </div>
-
-            <!-- Bottom Gradient Fade for List -->
-            <div class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white/90 to-transparent pointer-events-none md:block hidden"></div>
+  </head>
+  <body
+    class="bg-slate-50 text-gray-800 w-screen h-screen overflow-hidden font-sans antialiased"
+  >
+    <!-- App Container (Side-by-side on desktop, stacked on mobile) -->
+    <div class="w-full h-full flex relative overflow-hidden">
+      <!-- Solid Sidebar / List Panel -->
+      <div
+        id="sidebar-panel"
+        class="w-full md:w-[420px] bg-white flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.1)] h-full transition-transform duration-300 transform translate-x-0 md:translate-x-0 absolute md:relative z-30 flex-shrink-0"
+      >
+        <!-- Header -->
+        <div class="px-6 pt-8 pb-5 border-b border-gray-100 bg-white">
+          <h1
+            class="text-3xl font-extrabold tracking-tight text-emerald-600 drop-shadow-sm"
+          >
+            Siem Reap Explorer
+          </h1>
+          <p
+            class="text-sm font-medium text-gray-500 mt-1 flex items-center gap-2"
+          >
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              ></path>
+            </svg>
+            2 Days, 1 Night Premium Itinerary
+          </p>
         </div>
 
-        <!-- Floating Action Buttons (Right Side) -->
-        <div class="pointer-events-auto absolute top-24 right-4 md:top-auto md:bottom-6 md:right-6 md:relative md:flex flex-col gap-3 z-20">
-            <button id="clear-route-btn" onclick="clearRoute()" class="hidden bg-rose-500/90 backdrop-blur-md hover:bg-rose-600 text-white font-semibold py-3 px-5 rounded-2xl shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 border border-rose-400/50">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-                Clear Route
-            </button>
+        <!-- Category Filters -->
+        <div
+          class="px-6 py-4 flex gap-3 overflow-x-auto hide-scrollbar shrink-0 bg-white border-b border-gray-100"
+        >
+          <button
+            onclick="filterPlaces('All')"
+            class="filter-btn active shrink-0 bg-emerald-600 text-white shadow-md shadow-emerald-600/20 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:scale-105"
+          >
+            All
+          </button>
+          <button
+            onclick="filterPlaces('Temple')"
+            class="filter-btn shrink-0 bg-gray-50 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105"
+          >
+            Temples
+          </button>
+          <button
+            onclick="filterPlaces('Cafe')"
+            class="filter-btn shrink-0 bg-gray-50 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105"
+          >
+            Cafes
+          </button>
+          <button
+            onclick="filterPlaces('Food & Nightlife')"
+            class="filter-btn shrink-0 bg-gray-50 text-gray-700 hover:bg-gray-100 px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 transition-all hover:scale-105"
+          >
+            Food & Nightlife
+          </button>
         </div>
+
+        <!-- Places List -->
+        <div
+          id="places-list"
+          class="flex-1 overflow-y-auto px-6 py-4 space-y-4 pb-24 relative z-0 bg-slate-50"
+        >
+          <!-- Cards populated by JS -->
+        </div>
+
+        <!-- Bottom Gradient Fade for List -->
+        <div
+          class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none"
+        ></div>
+      </div>
+
+      <!-- Map Area -->
+      <div class="flex-1 h-full w-full absolute inset-0 md:relative z-20">
+        <!-- Fullscreen Map -->
+        <div id="map" class="w-full h-full z-0"></div>
+
+        <!-- Mobile Back to List Button -->
+        <button
+          onclick="showList()"
+          class="md:hidden absolute top-6 left-4 z-[1000] bg-white/95 backdrop-blur shadow-lg border border-gray-200 text-gray-800 px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-50 transition-colors"
+        >
+          <svg
+            class="w-5 h-5 text-emerald-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2.5"
+              d="M15 19l-7-7 7-7"
+            ></path>
+          </svg>
+          Back to List
+        </button>
+
+        <!-- Floating Action Buttons -->
+        <div
+          class="pointer-events-auto absolute top-24 right-4 md:bottom-6 md:right-6 md:top-auto flex flex-col gap-3 z-[1000]"
+        >
+          <button
+            id="clear-route-btn"
+            onclick="clearRoute()"
+            class="hidden bg-rose-500/90 backdrop-blur-md hover:bg-rose-600 text-white font-semibold py-3 px-5 rounded-2xl shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 border border-rose-400/50"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            Clear Route
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Toast Notification -->
-    <div id="toast" class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-gray-900/90 backdrop-blur-md text-white px-6 py-3.5 rounded-2xl shadow-2xl transition-all duration-500 -translate-y-[150%] opacity-0 z-[60] flex items-center gap-3 border border-gray-700">
-        <!-- Icons ... -->
-        <svg id="toast-icon-error" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-rose-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <svg id="toast-icon-success" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-emerald-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <svg id="toast-icon-info" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span id="toast-message" class="font-medium text-sm tracking-wide"></span>
+    <div
+      id="toast"
+      class="fixed top-6 left-1/2 transform -translate-x-1/2 bg-gray-900/90 backdrop-blur-md text-white px-6 py-3.5 rounded-2xl shadow-2xl transition-all duration-500 -translate-y-[150%] opacity-0 z-[60] flex items-center gap-3 border border-gray-700"
+    >
+      <!-- Icons ... -->
+      <svg
+        id="toast-icon-error"
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-6 w-6 text-rose-400 hidden"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      <svg
+        id="toast-icon-success"
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-6 w-6 text-emerald-400 hidden"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      <svg
+        id="toast-icon-info"
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-6 w-6 text-blue-400 hidden"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+      <span id="toast-message" class="font-medium text-sm tracking-wide"></span>
     </div>
 
     <!-- Loading Overlay -->
-    <div id="loading-overlay" class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[70] flex-col items-center justify-center">
-        <div class="bg-white/90 rounded-3xl p-8 flex flex-col items-center shadow-2xl">
-            <div class="animate-spin rounded-full h-14 w-14 border-4 border-gray-200 border-t-emerald-600 mb-4"></div>
-            <p class="text-gray-800 font-bold tracking-tight">Calculating optimal route...</p>
-        </div>
+    <div
+      id="loading-overlay"
+      class="fixed inset-0 bg-gray-900/40 backdrop-blur-sm hidden z-[70] flex-col items-center justify-center"
+    >
+      <div
+        class="bg-white/90 rounded-3xl p-8 flex flex-col items-center shadow-2xl"
+      >
+        <div
+          class="animate-spin rounded-full h-14 w-14 border-4 border-gray-200 border-t-emerald-600 mb-4"
+        ></div>
+        <p class="text-gray-800 font-bold tracking-tight">
+          Calculating optimal route...
+        </p>
+      </div>
     </div>
 
     <!-- Scripts -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
     <script>
-        // --- Data: Places in Siem Reap ---
-        const places = [
-            { id: 1, name: "UTEY HOTEL", lat: 13.3615, lng: 103.8550, cat: "Hotel", desc: "Central location, open 24 hours for early bag drop." },
-            { id: 2, name: "Angkor Wat", lat: 13.4125, lng: 103.8670, cat: "Temple", desc: "Iconic photography spot, best visited early morning." },
-            { id: 3, name: "Preah Dak Village", lat: 13.4390, lng: 103.9350, cat: "Food & Nightlife", desc: "Authentic village famous for Nom Banh Chok noodles." },
-            { id: 4, name: "BROWN Roastery", lat: 13.3630, lng: 103.8560, cat: "Cafe", desc: "Chic, air-conditioned cafe for afternoon breaks." },
-            { id: 5, name: "Sbov café", lat: 13.3550, lng: 103.8590, cat: "Cafe", desc: "Aesthetic design, highly photogenic." },
-            { id: 6, name: "The Bean Embassy", lat: 13.3520, lng: 103.8570, cat: "Cafe", desc: "Specialty coffee and in-house roastery." },
-            { id: 7, name: "Street 08 (Pub Street)", lat: 13.3548, lng: 103.8553, cat: "Food & Nightlife", desc: "Heart of nightlife, neon lights, street photography." },
-            { id: 8, name: "Bayon Temple", lat: 13.4413, lng: 103.8590, cat: "Temple", desc: "Famous for 200 massive smiling stone faces." },
-            { id: 9, name: "Ta Prohm Temple", lat: 13.4348, lng: 103.8893, cat: "Temple", desc: "The 'Tomb Raider' temple covered in massive tree roots." },
-            { id: 10, name: "Temple Coffee n Bakery", lat: 13.3552, lng: 103.8558, cat: "Cafe", desc: "Expansive menu, great place to recharge." },
-            { id: 11, name: "Siem Reap Art Center Night Market", lat: 13.3525, lng: 103.8565, cat: "Food & Nightlife", desc: "Opens at 4PM, perfect for souvenirs." },
-            { id: 12, name: "Prasat Beng Mealea", lat: 13.4756, lng: 104.2269, cat: "Temple", desc: "Jungle-enveloped ruins for adventurous exploration." },
-            { id: 13, name: "Banteay Srei Temple", lat: 13.5987, lng: 103.9632, cat: "Temple", desc: "Intricate carvings on pinkish-red sandstone." },
-            { id: 14, name: "Phnom Bakheng Temple", lat: 13.4243, lng: 103.8561, cat: "Temple", desc: "Hilltop temple, famous sunset viewing spot." },
-            { id: 15, name: "Preah Khan Temple", lat: 13.4619, lng: 103.8718, cat: "Temple", desc: "Sprawling monastic complex and maze of corridors." },
-            { id: 16, name: "Bapoun Temple", lat: 13.4437, lng: 103.8560, cat: "Temple", desc: "11th-century pyramid structure with a viewing terrace." },
-            { id: 17, name: "Terrace of the Elephants", lat: 13.4457, lng: 103.8587, cat: "Temple", desc: "Ancient royal viewing platform with carvings." },
-            { id: 18, name: "Preah Ang Chek Preah Ang Chorm", lat: 13.3621, lng: 103.8598, cat: "Temple", desc: "Revered local religious shrine in the city center." },
-            { id: 19, name: "Angkor National Museum", lat: 13.3662, lng: 103.8604, cat: "Temple", desc: "Expansive museum of Khmer artifacts and history." },
-            { id: 20, name: "Mariko Matcha Co", lat: 13.3570, lng: 103.8500, cat: "Cafe", desc: "Specialty matcha drinks and Japanese aesthetics." },
-            { id: 21, name: "Fern Cafe Siemreap", lat: 13.3650, lng: 103.8550, cat: "Cafe", desc: "Cozy, green-filled morning coffee spot." },
-            { id: 22, name: "AROM Caffè", lat: 13.3600, lng: 103.8600, cat: "Cafe", desc: "Quality coffee in a comfortable environment." },
-            { id: 23, name: "កាំមឹ កាហ្វេ KANMU #かんむ", lat: 13.3590, lng: 103.8610, cat: "Cafe", desc: "Stylish local favorite for casual beverages." },
-            { id: 24, name: "Gelato Lab", lat: 13.3556, lng: 103.8555, cat: "Food & Nightlife", desc: "Artisanal gelato to beat the Cambodian heat." },
-            { id: 25, name: "Starbucks | Angkor Parvis", lat: 13.3680, lng: 103.8600, cat: "Cafe", desc: "Familiar international customized coffee orders." },
-            { id: 26, name: "Kuy Teav Orussey", lat: 13.3650, lng: 103.8700, cat: "Food & Nightlife", desc: "Traditional comforting Cambodian noodle soup." },
-            { id: 27, name: "អាហារដ្ឋាន: ប្រហុក", lat: 13.3700, lng: 103.8500, cat: "Food & Nightlife", desc: "Local dining specializing in authentic regional food." },
-            { id: 28, name: "រ៉ាយុទ្ធ ជ្រូកអាំងភូមិព្រះដាក់", lat: 13.4400, lng: 103.9360, cat: "Food & Nightlife", desc: "Authentic roasted pork in Preah Dak village." },
-            { id: 29, name: "មី គាវ Mikeav Siem Reap", lat: 13.3620, lng: 103.8550, cat: "Food & Nightlife", desc: "Popular venue for delicious noodles and dumplings." }
-    ];
+      // --- Data: Places in Siem Reap ---
+      const places = [
+        {
+          id: 1,
+          name: "UTEY HOTEL",
+          lat: 13.3615,
+          lng: 103.855,
+          cat: "Hotel",
+          desc: "Central location, open 24 hours for early bag drop.",
+        },
+        {
+          id: 2,
+          name: "Angkor Wat",
+          lat: 13.4125,
+          lng: 103.867,
+          cat: "Temple",
+          desc: "Iconic photography spot, best visited early morning.",
+        },
+        {
+          id: 3,
+          name: "Preah Dak Village",
+          lat: 13.439,
+          lng: 103.935,
+          cat: "Food & Nightlife",
+          desc: "Authentic village famous for Nom Banh Chok noodles.",
+        },
+        {
+          id: 4,
+          name: "BROWN Roastery",
+          lat: 13.363,
+          lng: 103.856,
+          cat: "Cafe",
+          desc: "Chic, air-conditioned cafe for afternoon breaks.",
+        },
+        {
+          id: 5,
+          name: "Sbov café",
+          lat: 13.355,
+          lng: 103.859,
+          cat: "Cafe",
+          desc: "Aesthetic design, highly photogenic.",
+        },
+        {
+          id: 6,
+          name: "The Bean Embassy",
+          lat: 13.352,
+          lng: 103.857,
+          cat: "Cafe",
+          desc: "Specialty coffee and in-house roastery.",
+        },
+        {
+          id: 7,
+          name: "Street 08 (Pub Street)",
+          lat: 13.3548,
+          lng: 103.8553,
+          cat: "Food & Nightlife",
+          desc: "Heart of nightlife, neon lights, street photography.",
+        },
+        {
+          id: 8,
+          name: "Bayon Temple",
+          lat: 13.4413,
+          lng: 103.859,
+          cat: "Temple",
+          desc: "Famous for 200 massive smiling stone faces.",
+        },
+        {
+          id: 9,
+          name: "Ta Prohm Temple",
+          lat: 13.4348,
+          lng: 103.8893,
+          cat: "Temple",
+          desc: "The 'Tomb Raider' temple covered in massive tree roots.",
+        },
+        {
+          id: 10,
+          name: "Temple Coffee n Bakery",
+          lat: 13.3552,
+          lng: 103.8558,
+          cat: "Cafe",
+          desc: "Expansive menu, great place to recharge.",
+        },
+        {
+          id: 11,
+          name: "Siem Reap Art Center Night Market",
+          lat: 13.3525,
+          lng: 103.8565,
+          cat: "Food & Nightlife",
+          desc: "Opens at 4PM, perfect for souvenirs.",
+        },
+        {
+          id: 12,
+          name: "Prasat Beng Mealea",
+          lat: 13.4756,
+          lng: 104.2269,
+          cat: "Temple",
+          desc: "Jungle-enveloped ruins for adventurous exploration.",
+        },
+        {
+          id: 13,
+          name: "Banteay Srei Temple",
+          lat: 13.5987,
+          lng: 103.9632,
+          cat: "Temple",
+          desc: "Intricate carvings on pinkish-red sandstone.",
+        },
+        {
+          id: 14,
+          name: "Phnom Bakheng Temple",
+          lat: 13.4243,
+          lng: 103.8561,
+          cat: "Temple",
+          desc: "Hilltop temple, famous sunset viewing spot.",
+        },
+        {
+          id: 15,
+          name: "Preah Khan Temple",
+          lat: 13.4619,
+          lng: 103.8718,
+          cat: "Temple",
+          desc: "Sprawling monastic complex and maze of corridors.",
+        },
+        {
+          id: 16,
+          name: "Bapoun Temple",
+          lat: 13.4437,
+          lng: 103.856,
+          cat: "Temple",
+          desc: "11th-century pyramid structure with a viewing terrace.",
+        },
+        {
+          id: 17,
+          name: "Terrace of the Elephants",
+          lat: 13.4457,
+          lng: 103.8587,
+          cat: "Temple",
+          desc: "Ancient royal viewing platform with carvings.",
+        },
+        {
+          id: 18,
+          name: "Preah Ang Chek Preah Ang Chorm",
+          lat: 13.3621,
+          lng: 103.8598,
+          cat: "Temple",
+          desc: "Revered local religious shrine in the city center.",
+        },
+        {
+          id: 19,
+          name: "Angkor National Museum",
+          lat: 13.3662,
+          lng: 103.8604,
+          cat: "Temple",
+          desc: "Expansive museum of Khmer artifacts and history.",
+        },
+        {
+          id: 20,
+          name: "Mariko Matcha Co",
+          lat: 13.357,
+          lng: 103.85,
+          cat: "Cafe",
+          desc: "Specialty matcha drinks and Japanese aesthetics.",
+        },
+        {
+          id: 21,
+          name: "Fern Cafe Siemreap",
+          lat: 13.365,
+          lng: 103.855,
+          cat: "Cafe",
+          desc: "Cozy, green-filled morning coffee spot.",
+        },
+        {
+          id: 22,
+          name: "AROM Caffè",
+          lat: 13.36,
+          lng: 103.86,
+          cat: "Cafe",
+          desc: "Quality coffee in a comfortable environment.",
+        },
+        {
+          id: 23,
+          name: "កាំមឹ កាហ្វេ KANMU #かんむ",
+          lat: 13.359,
+          lng: 103.861,
+          cat: "Cafe",
+          desc: "Stylish local favorite for casual beverages.",
+        },
+        {
+          id: 24,
+          name: "Gelato Lab",
+          lat: 13.3556,
+          lng: 103.8555,
+          cat: "Food & Nightlife",
+          desc: "Artisanal gelato to beat the Cambodian heat.",
+        },
+        {
+          id: 25,
+          name: "Starbucks | Angkor Parvis",
+          lat: 13.368,
+          lng: 103.86,
+          cat: "Cafe",
+          desc: "Familiar international customized coffee orders.",
+        },
+        {
+          id: 26,
+          name: "Kuy Teav Orussey",
+          lat: 13.365,
+          lng: 103.87,
+          cat: "Food & Nightlife",
+          desc: "Traditional comforting Cambodian noodle soup.",
+        },
+        {
+          id: 27,
+          name: "អាហារដ្ឋាន: ប្រហុក",
+          lat: 13.37,
+          lng: 103.85,
+          cat: "Food & Nightlife",
+          desc: "Local dining specializing in authentic regional food.",
+        },
+        {
+          id: 28,
+          name: "រ៉ាយុទ្ធ ជ្រូកអាំងភូមិព្រះដាក់",
+          lat: 13.44,
+          lng: 103.936,
+          cat: "Food & Nightlife",
+          desc: "Authentic roasted pork in Preah Dak village.",
+        },
+        {
+          id: 29,
+          name: "មី គាវ Mikeav Siem Reap",
+          lat: 13.362,
+          lng: 103.855,
+          cat: "Food & Nightlife",
+          desc: "Popular venue for delicious noodles and dumplings.",
+        },
+      ];
 
-    // --- Globals ---
-    let map;
-    let markers = [];
-    let routingControl = null;
-    let userMarker = null;
-    let currentFilter = 'All';
+      // --- Globals ---
+      let map;
+      let markers = [];
+      let routingControl = null;
+      let userMarker = null;
+      let currentFilter = "All";
 
-    // Custom Map Icons (Slightly improved colors for the new theme)
-    const icons = {
-        'Hotel': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] }),
-        'Temple': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] }),
-        'Cafe': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] }),
-        'Food & Nightlife': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] }),
-        'User': L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] })
-    };
+      // Custom Map Icons (Slightly improved colors for the new theme)
+      const icons = {
+        Hotel: L.icon({
+          iconUrl:
+            "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png",
+          shadowUrl:
+            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+        }),
+        Temple: L.icon({
+          iconUrl:
+            "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png",
+          shadowUrl:
+            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+        }),
+        Cafe: L.icon({
+          iconUrl:
+            "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png",
+          shadowUrl:
+            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+        }),
+        "Food & Nightlife": L.icon({
+          iconUrl:
+            "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+          shadowUrl:
+            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+        }),
+        User: L.icon({
+          iconUrl:
+            "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+          shadowUrl:
+            "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+        }),
+      };
 
-    const catStyles = {
-        'Hotel': { bg: 'bg-violet-100', text: 'text-violet-700', border: 'border-violet-200' },
-        'Temple': { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-200' },
-        'Cafe': { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
-        'Food & Nightlife': { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-200' }
-    };
+      const catStyles = {
+        Hotel: {
+          bg: "bg-violet-100",
+          text: "text-violet-700",
+          border: "border-violet-200",
+        },
+        Temple: {
+          bg: "bg-amber-100",
+          text: "text-amber-700",
+          border: "border-amber-200",
+        },
+        Cafe: {
+          bg: "bg-orange-100",
+          text: "text-orange-700",
+          border: "border-orange-200",
+        },
+        "Food & Nightlife": {
+          bg: "bg-rose-100",
+          text: "text-rose-700",
+          border: "border-rose-200",
+        },
+      };
 
-    // Custom Toast System
-    function showToast(message, type = 'info') {
-        const toast = document.getElementById('toast');
-        const toastMsg = document.getElementById('toast-message');
-        
-        document.getElementById('toast-icon-error').classList.add('hidden');
-        document.getElementById('toast-icon-success').classList.add('hidden');
-        document.getElementById('toast-icon-info').classList.add('hidden');
-        
-        document.getElementById(`toast-icon-${type}`).classList.remove('hidden');
+      // Custom Toast System
+      function showToast(message, type = "info") {
+        const toast = document.getElementById("toast");
+        const toastMsg = document.getElementById("toast-message");
+
+        document.getElementById("toast-icon-error").classList.add("hidden");
+        document.getElementById("toast-icon-success").classList.add("hidden");
+        document.getElementById("toast-icon-info").classList.add("hidden");
+
+        document
+          .getElementById(`toast-icon-${type}`)
+          .classList.remove("hidden");
         toastMsg.innerText = message;
-        
-        toast.classList.remove('hidden', '-translate-y-[150%]', 'opacity-0');
-        toast.classList.add('translate-y-0', 'opacity-100');
-        
+
+        toast.classList.remove("hidden", "-translate-y-[150%]", "opacity-0");
+        toast.classList.add("translate-y-0", "opacity-100");
+
         setTimeout(() => {
-            toast.classList.remove('translate-y-0', 'opacity-100');
-            toast.classList.add('-translate-y-[150%]', 'opacity-0');
-            setTimeout(() => toast.classList.add('hidden'), 500);
+          toast.classList.remove("translate-y-0", "opacity-100");
+          toast.classList.add("-translate-y-[150%]", "opacity-0");
+          setTimeout(() => toast.classList.add("hidden"), 500);
         }, 4000);
-    }
+      }
 
-    function initMap() {
+      // --- Mobile View Toggles ---
+      function showMap() {
+        if (window.innerWidth < 768) {
+          document
+            .getElementById("sidebar-panel")
+            .classList.add("-translate-x-full");
+        }
+      }
+
+      function showList() {
+        if (window.innerWidth < 768) {
+          document
+            .getElementById("sidebar-panel")
+            .classList.remove("-translate-x-full");
+        }
+      }
+
+      function initMap() {
         // Remove default zoom control to reposition it
-        map = L.map('map', { zoomControl: false }).setView([13.3850, 103.8595], 13);
+        map = L.map("map", { zoomControl: false }).setView(
+          [13.385, 103.8595],
+          13,
+        );
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         }).addTo(map);
 
         // Add zoom control to top right so it doesn't collide with the glass panel
-        L.control.zoom({ position: 'topright' }).addTo(map);
+        L.control.zoom({ position: "topright" }).addTo(map);
 
         renderMarkersAndSidebar();
-        initMobileSwipePanel();
-    }
+      }
 
-    function initMobileSwipePanel() {
-        const handle = document.getElementById('mobile-handle');
-        const panel = document.getElementById('sidebar-panel');
-        if (!handle || !panel) return;
-
-        let startY = 0;
-        let startHeight = 0;
-        
-        // Touch Dragging Logic
-        handle.addEventListener('touchstart', (e) => {
-            startY = e.touches[0].clientY;
-            startHeight = panel.getBoundingClientRect().height;
-            panel.style.transition = 'none'; // Disable transition for instant 1:1 dragging
-        }, { passive: true });
-
-        handle.addEventListener('touchmove', (e) => {
-            const deltaY = startY - e.touches[0].clientY;
-            let newHeight = startHeight + deltaY;
-            
-            const minHeight = window.innerHeight * 0.20;
-            const maxHeight = window.innerHeight * 0.85;
-            
-            if (newHeight > maxHeight) newHeight = maxHeight;
-            if (newHeight < minHeight) newHeight = minHeight;
-            
-            panel.style.height = `${newHeight}px`;
-        }, { passive: true });
-
-        handle.addEventListener('touchend', (e) => {
-            panel.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-            const currentHeight = panel.getBoundingClientRect().height;
-            const threshold = window.innerHeight * 0.5;
-            
-            // Snap to top or bottom based on drag threshold
-            if (currentHeight > threshold) {
-                panel.style.height = '85vh';
-            } else {
-                panel.style.height = '35vh';
-            }
-        });
-        
-        // Tap to Toggle Logic
-        handle.addEventListener('click', () => {
-             panel.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-             const currentHeight = panel.getBoundingClientRect().height;
-             if(currentHeight < window.innerHeight * 0.5) {
-                 panel.style.height = '85vh';
-             } else {
-                 panel.style.height = '35vh';
-             }
-        });
-    }
-
-    function getPopupHTML(place) {
+      function getPopupHTML(place) {
         const style = catStyles[place.cat];
         return `
             <div class="p-4 pb-2 w-64 font-sans">
@@ -325,47 +724,53 @@
                 </button>
             </div>
         `;
-    }
+      }
 
-    function renderMarkersAndSidebar() {
-        markers.forEach(m => map.removeLayer(m));
+      function renderMarkersAndSidebar() {
+        markers.forEach((m) => map.removeLayer(m));
         markers = [];
-        const listContainer = document.getElementById('places-list');
-        listContainer.innerHTML = '';
+        const listContainer = document.getElementById("places-list");
+        listContainer.innerHTML = "";
 
-        const filteredPlaces = currentFilter === 'All' ? places : places.filter(p => p.cat === currentFilter);
+        const filteredPlaces =
+          currentFilter === "All"
+            ? places
+            : places.filter((p) => p.cat === currentFilter);
 
         if (filteredPlaces.length === 0) {
-            listContainer.innerHTML = `
+          listContainer.innerHTML = `
                 <div class="text-center py-10 flex flex-col items-center">
                     <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     <p class="text-sm text-gray-500 font-medium">No places found in this category.</p>
                 </div>`;
-            return;
+          return;
         }
 
-        filteredPlaces.forEach(place => {
-            // Map Marker with custom glass popup styling option
-            const marker = L.marker([place.lat, place.lng], { icon: icons[place.cat] || icons['Temple'] })
-                .addTo(map)
-                .bindPopup(getPopupHTML(place), { className: 'glass-popup' });
-            
-            place.marker = marker;
-            markers.push(marker);
+        filteredPlaces.forEach((place) => {
+          // Map Marker with custom glass popup styling option
+          const marker = L.marker([place.lat, place.lng], {
+            icon: icons[place.cat] || icons["Temple"],
+          })
+            .addTo(map)
+            .bindPopup(getPopupHTML(place), { className: "glass-popup" });
 
-            // Sidebar Card (Glassmorphism design)
-            const style = catStyles[place.cat];
-            const card = document.createElement('div');
-            card.className = "group bg-white/50 hover:bg-white border border-white/60 rounded-2xl p-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-lg backdrop-blur-md relative overflow-hidden";
-            card.onclick = () => focusPlace(place);
-            
-            card.innerHTML = `
+          place.marker = marker;
+          markers.push(marker);
+
+          // Sidebar Card (Solid clean design)
+          const style = catStyles[place.cat];
+          const card = document.createElement("div");
+          card.className =
+            "group bg-white border border-gray-200 rounded-2xl p-4 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md hover:border-emerald-300 relative overflow-hidden";
+          card.onclick = () => focusPlace(place);
+
+          card.innerHTML = `
                 <div class="flex justify-between items-start mb-2 relative z-10">
                     <span class="inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${style.bg} ${style.text} border ${style.border}">
                         ${place.cat}
                     </span>
                     <button onclick="event.stopPropagation(); getDirectionsTo(${place.lat}, ${place.lng}, '${place.name.replace(/'/g, "\\'")}')" 
-                            class="p-2 rounded-full bg-white shadow-sm text-emerald-600 hover:bg-emerald-50 hover:scale-110 transition-transform" title="Get Directions">
+                            class="p-2 rounded-full bg-slate-50 shadow-sm text-emerald-600 hover:bg-emerald-100 hover:scale-110 transition-transform" title="Get Directions">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                     </button>
                 </div>
@@ -373,180 +778,240 @@
                     <h3 class="font-bold text-gray-800 text-base mb-1 group-hover:text-emerald-700 transition-colors">${place.name}</h3>
                     <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed font-medium">${place.desc}</p>
                 </div>
-                <!-- Hover gradient effect -->
-                <div class="absolute inset-0 bg-gradient-to-br from-white/0 to-white/40 opacity-0 group-hover:opacity-100 transition-opacity z-0"></div>
             `;
-            listContainer.appendChild(card);
+          listContainer.appendChild(card);
         });
-    }
+      }
 
-    function filterPlaces(category) {
+      function filterPlaces(category) {
         currentFilter = category;
-        
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            if(btn.innerText.includes(category) || (category === 'All' && btn.innerText === 'All')) {
-                btn.classList.replace('bg-white/60', 'bg-emerald-600');
-                btn.classList.replace('text-gray-700', 'text-white');
-                btn.classList.add('shadow-md', 'shadow-emerald-600/20');
-                btn.classList.remove('border-gray-200', 'border');
-            } else {
-                btn.classList.replace('bg-emerald-600', 'bg-white/60');
-                btn.classList.replace('text-white', 'text-gray-700');
-                btn.classList.remove('shadow-md', 'shadow-emerald-600/20');
-                btn.classList.add('border-gray-200', 'border');
-            }
+
+        document.querySelectorAll(".filter-btn").forEach((btn) => {
+          if (
+            btn.innerText.includes(category) ||
+            (category === "All" && btn.innerText === "All")
+          ) {
+            btn.classList.replace("bg-white/60", "bg-emerald-600");
+            btn.classList.replace("text-gray-700", "text-white");
+            btn.classList.add("shadow-md", "shadow-emerald-600/20");
+            btn.classList.remove("border-gray-200", "border");
+          } else {
+            btn.classList.replace("bg-emerald-600", "bg-white/60");
+            btn.classList.replace("text-white", "text-gray-700");
+            btn.classList.remove("shadow-md", "shadow-emerald-600/20");
+            btn.classList.add("border-gray-200", "border");
+          }
         });
 
         renderMarkersAndSidebar();
-        
-        if (markers.length > 0 && !routingControl) {
-            const group = new L.featureGroup(markers);
-            // Offset map bounds to account for sidebar on desktop
-            const paddingLeft = window.innerWidth > 768 ? 450 : 50;
-            map.fitBounds(group.getBounds(), { paddingBottomRight: [50, 50], paddingTopLeft: [paddingLeft, 50] });
-        }
-    }
 
-    function focusPlace(place) {
-        // Offset view for sidebar and mobile panel
+        if (markers.length > 0 && !routingControl) {
+          const group = new L.featureGroup(markers);
+          // Offset map bounds to account for sidebar on desktop
+          const paddingLeft = window.innerWidth > 768 ? 450 : 50;
+          map.fitBounds(group.getBounds(), {
+            paddingBottomRight: [50, 50],
+            paddingTopLeft: [paddingLeft, 50],
+          });
+        }
+      }
+
+      function focusPlace(place) {
+        showMap(); // Slide list away on mobile
+
+        // Offset view for sidebar on desktop only
         const paddingLeft = window.innerWidth > 768 ? 400 : 0;
-        const paddingBottom = window.innerWidth <= 768 ? (window.innerHeight * 0.35) : 0;
-        
-        const targetPoint = map.project([place.lat, place.lng], 15).subtract([paddingLeft / 2, -paddingBottom / 2]);
+
+        const targetPoint = map
+          .project([place.lat, place.lng], 15)
+          .subtract([paddingLeft / 2, 0]);
         const targetLatLng = map.unproject(targetPoint, 15);
 
         map.flyTo(targetLatLng, 15, { duration: 1.5 });
-        
-        // Auto-collapse panel on mobile so they can see the map clearly
-        if (window.innerWidth < 768) {
-            const panel = document.getElementById('sidebar-panel');
-            panel.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-            panel.style.height = '35vh';
-        }
-        
+
         setTimeout(() => {
-            place.marker.openPopup();
-        }, 1500);
-    }
+          place.marker.openPopup();
+        }, 1000);
+      }
 
-    function getDirectionsTo(destLat, destLng, destName) {
-        // Auto-collapse panel on mobile to see the route being drawn
-        if (window.innerWidth < 768) {
-            const panel = document.getElementById('sidebar-panel');
-            panel.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-            panel.style.height = '35vh';
-        }
+      function getDirectionsTo(destLat, destLng, destName) {
+        showMap(); // Slide list away on mobile
 
-        document.getElementById('loading-overlay').classList.remove('hidden');
-        document.getElementById('loading-overlay').classList.add('flex');
+        document.getElementById("loading-overlay").classList.remove("hidden");
+        document.getElementById("loading-overlay").classList.add("flex");
 
         if (!navigator.geolocation) {
-            document.getElementById('loading-overlay').classList.add('hidden');
-            document.getElementById('loading-overlay').classList.remove('flex');
-            showToast("Geolocation is not supported by your browser.", "error");
-            return;
+          document.getElementById("loading-overlay").classList.add("hidden");
+          document.getElementById("loading-overlay").classList.remove("flex");
+          showToast("Geolocation is not supported by your browser.", "error");
+          return;
         }
 
         navigator.geolocation.getCurrentPosition(
-            (position) => {
-                drawRoute(position.coords.latitude, position.coords.longitude, destLat, destLng, destName);
-            },
-            (error) => {
-                document.getElementById('loading-overlay').classList.add('hidden');
-                document.getElementById('loading-overlay').classList.remove('flex');
-                let errorMsg = "Unable to retrieve your location.";
-                if(error.code === 1) errorMsg = "Location access denied.";
-                
-                showToast(errorMsg + " Simulating location from Siem Reap Airport.", "info");
-                setTimeout(() => drawRoute(13.4109, 103.8130, destLat, destLng, destName), 2000);
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-    }
+          (position) => {
+            drawRoute(
+              position.coords.latitude,
+              position.coords.longitude,
+              destLat,
+              destLng,
+              destName,
+            );
+          },
+          (error) => {
+            document.getElementById("loading-overlay").classList.add("hidden");
+            document.getElementById("loading-overlay").classList.remove("flex");
+            let errorMsg = "Unable to retrieve your location.";
+            if (error.code === 1) errorMsg = "Location access denied.";
 
-    function drawRoute(startLat, startLng, destLat, destLng, destName) {
-        document.getElementById('loading-overlay').classList.add('hidden');
-        document.getElementById('loading-overlay').classList.remove('flex');
+            showToast(
+              errorMsg + " Simulating location from Siem Reap Airport.",
+              "info",
+            );
+            setTimeout(
+              () => drawRoute(13.4109, 103.813, destLat, destLng, destName),
+              2000,
+            );
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+        );
+      }
+
+      function drawRoute(startLat, startLng, destLat, destLng, destName) {
+        document.getElementById("loading-overlay").classList.add("hidden");
+        document.getElementById("loading-overlay").classList.remove("flex");
         clearRoute();
 
-        userMarker = L.marker([startLat, startLng], { icon: icons['User'], zIndexOffset: 1000 })
-            .addTo(map).bindPopup("<b class='font-sans'>Your Location</b>", { className: 'glass-popup' }).openPopup();
+        userMarker = L.marker([startLat, startLng], {
+          icon: icons["User"],
+          zIndexOffset: 1000,
+        })
+          .addTo(map)
+          .bindPopup("<b class='font-sans'>Your Location</b>", {
+            className: "glass-popup",
+          })
+          .openPopup();
 
         try {
-            routingControl = L.Routing.control({
-                waypoints: [ L.latLng(startLat, startLng), L.latLng(destLat, destLng) ],
-                // Explicitly use the free OSRM public routing server (No API Key Required)
-                router: L.Routing.osrmv1({
-                    serviceUrl: 'https://router.project-osrm.org/route/v1'
-                }),
-                routeWhileDragging: false,
-                addWaypoints: false,
-                showAlternatives: false, // Turned off to speed up calculations on the free server
-                fitSelectedRoutes: true,
-                lineOptions: { styles: [{color: '#059669', opacity: 0.9, weight: 5, className: 'drop-shadow-md'}] },
-                createMarker: function() { return null; }
-            }).on('routingerror', function(e) {
-                // Fallback if the free public server is rate-limited
-                showToast("Public routing server is busy. Drawing direct path.", "info");
-                
-                const fallbackLine = L.polyline([[startLat, startLng], [destLat, destLng]], {
-                    color: '#059669', opacity: 0.7, weight: 5, dashArray: '10, 10'
-                }).addTo(map);
-                
-                routingControl._fallbackLine = fallbackLine;
-                map.fitBounds(fallbackLine.getBounds(), { padding: [50, 50] });
-            }).addTo(map);
+          routingControl = L.Routing.control({
+            waypoints: [
+              L.latLng(startLat, startLng),
+              L.latLng(destLat, destLng),
+            ],
+            // Explicitly use the free OSRM public routing server (No API Key Required)
+            router: L.Routing.osrmv1({
+              serviceUrl: "https://router.project-osrm.org/route/v1",
+            }),
+            routeWhileDragging: false,
+            addWaypoints: false,
+            showAlternatives: false, // Turned off to speed up calculations on the free server
+            fitSelectedRoutes: true,
+            lineOptions: {
+              styles: [
+                {
+                  color: "#059669",
+                  opacity: 0.9,
+                  weight: 5,
+                  className: "drop-shadow-md",
+                },
+              ],
+            },
+            createMarker: function () {
+              return null;
+            },
+          })
+            .on("routingerror", function (e) {
+              // Fallback if the free public server is rate-limited
+              showToast(
+                "Public routing server is busy. Drawing direct path.",
+                "info",
+              );
 
-            document.getElementById('clear-route-btn').classList.remove('hidden');
-            showToast(`Routing to ${destName}...`, "success");
+              const fallbackLine = L.polyline(
+                [
+                  [startLat, startLng],
+                  [destLat, destLng],
+                ],
+                {
+                  color: "#059669",
+                  opacity: 0.7,
+                  weight: 5,
+                  dashArray: "10, 10",
+                },
+              ).addTo(map);
 
+              routingControl._fallbackLine = fallbackLine;
+              map.fitBounds(fallbackLine.getBounds(), { padding: [50, 50] });
+            })
+            .addTo(map);
+
+          document.getElementById("clear-route-btn").classList.remove("hidden");
+          showToast(`Routing to ${destName}...`, "success");
         } catch (err) {
-            showToast("Routing service is currently unavailable.", "error");
+          showToast("Routing service is currently unavailable.", "error");
         }
-    }
+      }
 
-    function clearRoute() {
-        if (routingControl) { 
-            if (routingControl._fallbackLine) { map.removeLayer(routingControl._fallbackLine); }
-            map.removeControl(routingControl); 
-            routingControl = null; 
+      function clearRoute() {
+        if (routingControl) {
+          if (routingControl._fallbackLine) {
+            map.removeLayer(routingControl._fallbackLine);
+          }
+          map.removeControl(routingControl);
+          routingControl = null;
         }
-        if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
-        document.getElementById('clear-route-btn').classList.add('hidden');
-        
+        if (userMarker) {
+          map.removeLayer(userMarker);
+          userMarker = null;
+        }
+        document.getElementById("clear-route-btn").classList.add("hidden");
+
         if (markers.length > 0) {
-            const group = new L.featureGroup(markers);
-            const paddingLeft = window.innerWidth > 768 ? 450 : 50;
-            map.fitBounds(group.getBounds(), { paddingBottomRight: [50, 50], paddingTopLeft: [paddingLeft, 50] });
+          const group = new L.featureGroup(markers);
+          const paddingLeft = window.innerWidth > 768 ? 450 : 50;
+          map.fitBounds(group.getBounds(), {
+            paddingBottomRight: [50, 50],
+            paddingTopLeft: [paddingLeft, 50],
+          });
         }
-    }
+      }
 
-    window.onload = initMap;
+      window.onload = initMap;
     </script>
 
     <script>
-        // 1. Generate PWA Manifest Dynamically
-        const manifestData = {
-            "name": "Siem Reap Travel Planner",
-            "short_name": "SiemReapApp",
-            "description": "Your ultimate 2-day 1-night travel planner for Siem Reap.",
-            "start_url": window.location.href.split('?')[0],
-            "display": "standalone",
-            "background_color": "#f8fafc",
-            "theme_color": "#059669",
-            "icons": [
-                { "src": "https://placehold.co/192x192/059669/ffffff.png?text=SR", "sizes": "192x192", "type": "image/png" },
-                { "src": "https://placehold.co/512x512/059669/ffffff.png?text=SR", "sizes": "512x512", "type": "image/png" }
-            ]
-        };
-        // Inject manifest into the link tag we added in the head
-        document.getElementById('manifest').href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestData));
+      // 1. Generate PWA Manifest Dynamically
+      const manifestData = {
+        name: "Siem Reap Travel Planner",
+        short_name: "SiemReapApp",
+        description:
+          "Your ultimate 2-day 1-night travel planner for Siem Reap.",
+        start_url: window.location.href.split("?")[0],
+        display: "standalone",
+        background_color: "#f8fafc",
+        theme_color: "#059669",
+        icons: [
+          {
+            src: "https://placehold.co/192x192/059669/ffffff.png?text=SR",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "https://placehold.co/512x512/059669/ffffff.png?text=SR",
+            sizes: "512x512",
+            type: "image/png",
+          },
+        ],
+      };
+      // Inject manifest into the link tag we added in the head
+      document.getElementById("manifest").href =
+        "data:application/manifest+json;charset=utf-8," +
+        encodeURIComponent(JSON.stringify(manifestData));
 
-        // 2. Register Service Worker Dynamically for Offline/PWA support
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Define a basic network-first Service Worker
-                const swCode = `
+      // 2. Register Service Worker Dynamically for Offline/PWA support
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          // Define a basic network-first Service Worker
+          const swCode = `
                     const CACHE_NAME = 'siem-reap-pwa-v1';
                     self.addEventListener('install', event => {
                         self.skipWaiting();
@@ -560,16 +1025,23 @@
                         );
                     });
                 `;
-                
-                // Create a blob URL for the service worker
-                const swBlob = new Blob([swCode], { type: 'text/javascript' });
-                const swUrl = URL.createObjectURL(swBlob);
-                
-                navigator.serviceWorker.register(swUrl)
-                    .then(reg => console.log('PWA Service Worker registered successfully.'))
-                    .catch(err => console.info('PWA Service Worker skipped (expected if running in sandboxed iframe environment).'));
-            });
-        }
+
+          // Create a blob URL for the service worker
+          const swBlob = new Blob([swCode], { type: "text/javascript" });
+          const swUrl = URL.createObjectURL(swBlob);
+
+          navigator.serviceWorker
+            .register(swUrl)
+            .then((reg) =>
+              console.log("PWA Service Worker registered successfully."),
+            )
+            .catch((err) =>
+              console.info(
+                "PWA Service Worker skipped (expected if running in sandboxed iframe environment).",
+              ),
+            );
+        });
+      }
     </script>
-</body>
+  </body>
 </html>
