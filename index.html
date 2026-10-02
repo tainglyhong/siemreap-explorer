@@ -277,20 +277,44 @@
       </div>
     </div>
 
-    <!-- Route Summary Card (distance, time, Google Maps hand-off) -->
+    <!-- Turn-by-turn banner (shown while navigating) -->
+    <div
+      id="nav-banner"
+      class="hidden fixed top-20 md:top-4 left-1/2 md:left-[calc(50%+210px)] -translate-x-1/2 w-[92%] max-w-md bg-emerald-700 text-white rounded-2xl shadow-2xl px-4 py-3 z-[950] flex items-center gap-3"
+    >
+      <span id="nav-arrow" class="text-3xl w-10 text-center"></span>
+      <div class="flex-1 min-w-0">
+        <p id="nav-dist" class="font-extrabold text-lg leading-tight"></p>
+        <p id="nav-text" class="text-sm opacity-90 truncate"></p>
+      </div>
+      <button id="nav-voice" onclick="toggleVoice()" class="text-xl">🔊</button>
+    </div>
+
+    <!-- Directions sheet: modes, ETA, alternative routes, steps, Google Maps hand-off -->
     <div
       id="route-summary"
-      class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[92%] max-w-md bg-white/95 backdrop-blur shadow-2xl rounded-2xl p-4 z-[900] border border-gray-200"
+      class="hidden fixed bottom-0 inset-x-0 md:bottom-6 md:inset-x-auto md:left-[calc(50%+210px)] md:-translate-x-1/2 md:w-[420px] bg-white/95 backdrop-blur shadow-2xl rounded-t-3xl md:rounded-3xl p-4 pb-[max(1rem,env(safe-area-inset-bottom))] z-[900] border border-gray-200"
     >
-      <p id="route-title" class="font-bold text-gray-900 truncate"></p>
-      <p id="route-stats" class="text-sm text-gray-600 mt-0.5"></p>
-      <a
-        id="route-gmaps"
-        target="_blank"
-        rel="noopener"
-        class="mt-3 block text-center bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2 rounded-xl"
-        >Open in Google Maps</a
-      >
+      <div class="flex items-start justify-between gap-2">
+        <p id="route-title" class="font-bold text-gray-900 truncate"></p>
+        <button onclick="clearRoute()" class="text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button data-mode="car" onclick="setRouteMode('car')" class="mode-btn px-3 py-1.5 rounded-full text-sm font-semibold">🚗 Drive</button>
+        <button data-mode="bike" onclick="setRouteMode('bike')" class="mode-btn px-3 py-1.5 rounded-full text-sm font-semibold">🚲 Bike</button>
+        <button data-mode="foot" onclick="setRouteMode('foot')" class="mode-btn px-3 py-1.5 rounded-full text-sm font-semibold">🚶 Walk</button>
+      </div>
+      <div class="mt-3 flex items-baseline gap-2">
+        <span id="route-time" class="text-2xl font-extrabold text-emerald-700"></span>
+        <span id="route-meta" class="text-sm text-gray-600"></span>
+      </div>
+      <div id="route-alts" class="flex gap-2 mt-2 overflow-x-auto hide-scrollbar"></div>
+      <div class="flex gap-2 mt-3">
+        <button id="route-start" onclick="toggleNav()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2.5 rounded-xl">Start</button>
+        <a id="route-gmaps" target="_blank" rel="noopener" class="flex-1 text-center border border-emerald-600 text-emerald-700 text-sm font-semibold py-2.5 rounded-xl">Google Maps</a>
+        <button onclick="document.getElementById('route-steps').classList.toggle('hidden')" class="px-3 border border-gray-300 rounded-xl text-sm font-semibold text-gray-700">Steps</button>
+      </div>
+      <ol id="route-steps" class="hidden mt-3 max-h-48 overflow-y-auto divide-y divide-gray-100 text-sm"></ol>
     </div>
 
     <!-- Toast Notification -->
@@ -959,10 +983,61 @@
         );
       }
 
+      // --- Google-Maps-style directions (free OpenStreetMap routing servers, no API key) ---
+      const ROUTE_MODES = {
+        car: ["https://routing.openstreetmap.de/routed-car/route/v1", "https://router.project-osrm.org/route/v1"],
+        bike: ["https://routing.openstreetmap.de/routed-bike/route/v1"],
+        foot: ["https://routing.openstreetmap.de/routed-foot/route/v1"],
+      };
+      let routeMode = "car";
+      let lastStart = null;
+      let lastDest = null;
+      let navWatch = null;
+      let accuracyCircle = null;
+      let speakOn = true;
+      let lastReroute = 0;
+      let spokenIdx = -1;
+
+      function fmtDist(m) {
+        return m < 1000 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : `${(m / 1000).toFixed(1)} km`;
+      }
+      function fmtTime(sec) {
+        const m = Math.max(1, Math.round(sec / 60));
+        return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+      }
+      function stepArrow(ins) {
+        const k = ((ins.type || "") + (ins.modifier || "")).toLowerCase().replace(/[\s_-]/g, "");
+        if (/destination|arrive/.test(k)) return "🏁";
+        if (/uturn|turnaround/.test(k)) return "↶";
+        if (/roundabout|rotary/.test(k)) return "⟳";
+        if (/sharpleft/.test(k)) return "↰";
+        if (/slightleft/.test(k)) return "↖";
+        if (/left/.test(k)) return "↰";
+        if (/sharpright|right/.test(k) && !/slightright/.test(k)) return "↱";
+        if (/slightright/.test(k)) return "↗";
+        return "↑";
+      }
+      function stepText(ins) {
+        return ins.text || [ins.type, ins.modifier, ins.road ? "onto " + ins.road : ""].filter(Boolean).join(" ");
+      }
+      function speak(text) {
+        if (!speakOn || !("speechSynthesis" in window)) return;
+        speechSynthesis.cancel();
+        speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+      }
+      function toggleVoice() {
+        speakOn = !speakOn;
+        document.getElementById("nav-voice").innerText = speakOn ? "🔊" : "🔇";
+        if (!speakOn && "speechSynthesis" in window) speechSynthesis.cancel();
+      }
+
       function drawRoute(startLat, startLng, destLat, destLng, destName) {
         document.getElementById("loading-overlay").classList.add("hidden");
         document.getElementById("loading-overlay").classList.remove("flex");
         clearRoute();
+
+        lastStart = { lat: startLat, lng: startLng };
+        lastDest = { lat: destLat, lng: destLng, name: destName };
 
         userMarker = L.marker([startLat, startLng], {
           icon: icons["User"],
@@ -974,93 +1049,222 @@
           })
           .openPopup();
 
-        try {
-          routingControl = L.Routing.control({
-            waypoints: [
-              L.latLng(startLat, startLng),
-              L.latLng(destLat, destLng),
-            ],
-            // Explicitly use the free OSRM public routing server (No API Key Required)
-            router: L.Routing.osrmv1({
-              serviceUrl: "https://router.project-osrm.org/route/v1",
-            }),
-            routeWhileDragging: false,
-            addWaypoints: false,
-            showAlternatives: false, // Turned off to speed up calculations on the free server
-            fitSelectedRoutes: true,
-            lineOptions: {
-              styles: [
-                {
-                  color: "#059669",
-                  opacity: 0.9,
-                  weight: 5,
-                  className: "drop-shadow-md",
-                },
-              ],
-            },
-            createMarker: function () {
-              return null;
-            },
-          })
-            .on("routesfound", function (e) {
-              // Show distance/time summary (the turn list is hidden on mobile)
-              const sum = e.routes[0].summary;
-              showRouteSummary(
-                destName,
-                `${(sum.totalDistance / 1000).toFixed(1)} km · ${Math.round(sum.totalTime / 60)} min by car`,
-                destLat,
-                destLng,
-              );
-            })
-            .on("routingerror", function (e) {
-              // Fallback if the free public server is rate-limited
-              showToast(
-                "Public routing server is busy. Drawing direct path.",
-                "info",
-              );
+        // routingControl now holds our own route state (kept so other code can test "is a route active")
+        routingControl = { routes: [], pairs: [], layers: [], sel: 0, token: 0 };
 
-              const fallbackLine = L.polyline(
-                [
-                  [startLat, startLng],
-                  [destLat, destLng],
-                ],
-                {
-                  color: "#059669",
-                  opacity: 0.7,
-                  weight: 5,
-                  dashArray: "10, 10",
-                },
-              ).addTo(map);
+        document.getElementById("route-title").innerText = destName;
+        document.getElementById("route-gmaps").href =
+          `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=${routeMode === "car" ? "driving" : routeMode === "bike" ? "bicycling" : "walking"}`;
+        document.getElementById("route-summary").classList.remove("hidden");
+        document.getElementById("clear-route-btn").classList.remove("hidden");
+        updateModeButtons();
+        requestRoutes();
+      }
 
-              routingControl._fallbackLine = fallbackLine;
-              const km = map.distance([startLat, startLng], [destLat, destLng]) / 1000;
-              showRouteSummary(destName, `${km.toFixed(1)} km straight-line`, destLat, destLng);
-              map.fitBounds(fallbackLine.getBounds(), { padding: [50, 50] });
-            })
-            .addTo(map);
+      function updateModeButtons() {
+        document.querySelectorAll(".mode-btn").forEach((b) => {
+          const on = b.dataset.mode === routeMode;
+          b.classList.toggle("bg-emerald-600", on);
+          b.classList.toggle("text-white", on);
+          b.classList.toggle("bg-gray-100", !on);
+          b.classList.toggle("text-gray-700", !on);
+        });
+      }
 
-          document.getElementById("clear-route-btn").classList.remove("hidden");
-          showToast(`Routing to ${destName}...`, "success");
-        } catch (err) {
-          showToast("Routing service is currently unavailable.", "error");
+      function setRouteMode(m) {
+        routeMode = m;
+        updateModeButtons();
+        if (lastDest) {
+          document.getElementById("route-gmaps").href =
+            `https://www.google.com/maps/dir/?api=1&destination=${lastDest.lat},${lastDest.lng}&travelmode=${m === "car" ? "driving" : m === "bike" ? "bicycling" : "walking"}`;
+        }
+        if (routingControl) requestRoutes();
+      }
+
+      function requestRoutes() {
+        const st = routingControl;
+        if (!st) return;
+        st.layers.forEach((l) => map.removeLayer(l));
+        st.layers = [];
+        st.pairs = [];
+        st.routes = [];
+        document.getElementById("route-time").innerText = "Finding routes…";
+        document.getElementById("route-meta").innerText = "";
+        document.getElementById("route-alts").innerHTML = "";
+        document.getElementById("route-steps").innerHTML = "";
+
+        const wps = [
+          L.Routing.waypoint(L.latLng(lastStart.lat, lastStart.lng)),
+          L.Routing.waypoint(L.latLng(lastDest.lat, lastDest.lng)),
+        ];
+        // Turned off to speed up calculations on the free server (showAlternatives is now on: the OSM servers handle it, and users can compare routes)
+        const servers = ROUTE_MODES[routeMode].slice();
+        const token = (st.token = Date.now());
+
+        const tryNext = () => {
+          if (st.token !== token || routingControl !== st) return;
+          if (!servers.length) return routeFailed();
+          // Explicitly use the free OSRM public routing server (No API Key Required)
+          // (walk/bike/car profiles come from the free routing.openstreetmap.de servers, OSRM is the car fallback)
+          L.Routing.osrmv1({ serviceUrl: servers.shift() }).route(wps, (err, routes) => {
+            if (st.token !== token || routingControl !== st) return;
+            if (err || !routes || !routes.length) return tryNext();
+            st.routes = routes;
+            routes.forEach((r, i) => {
+              const casing = L.polyline(r.coordinates, { color: "#ffffff", weight: 10, opacity: 0.9 }).addTo(map);
+              const line = L.polyline(r.coordinates, { weight: 6 }).addTo(map);
+              casing.on("click", () => selectRoute(i));
+              line.on("click", () => selectRoute(i));
+              st.pairs.push({ casing, line });
+              st.layers.push(casing, line);
+            });
+            selectRoute(0, navWatch === null);
+          });
+        };
+        tryNext();
+      }
+
+      function routeFailed() {
+        // Fallback if the free public server is rate-limited
+        showToast("Public routing server is busy. Drawing direct path.", "info");
+        const fallbackLine = L.polyline(
+          [[lastStart.lat, lastStart.lng], [lastDest.lat, lastDest.lng]],
+          { color: "#059669", opacity: 0.7, weight: 5, dashArray: "10, 10" },
+        ).addTo(map);
+        routingControl._fallbackLine = fallbackLine;
+        map.fitBounds(fallbackLine.getBounds(), { padding: [50, 50] });
+        const km = map.distance([lastStart.lat, lastStart.lng], [lastDest.lat, lastDest.lng]) / 1000;
+        document.getElementById("route-time").innerText = `${km.toFixed(1)} km`;
+        document.getElementById("route-meta").innerText = "straight-line distance";
+      }
+
+      function selectRoute(i, fit) {
+        const st = routingControl;
+        if (!st || !st.routes[i]) return;
+        st.sel = i;
+        st.pairs.forEach((p, j) => {
+          p.line.setStyle(j === i ? { color: "#059669", opacity: 0.95, weight: 6 } : { color: "#94a3b8", opacity: 0.85, weight: 5 });
+          p.casing.setStyle({ weight: j === i ? 10 : 8 });
+        });
+        st.pairs.forEach((p, j) => { if (j !== i) { p.casing.bringToFront(); p.line.bringToFront(); } });
+        st.pairs[i].casing.bringToFront();
+        st.pairs[i].line.bringToFront();
+
+        const r = st.routes[i];
+        const sum = r.summary;
+        const arrive = new Date(Date.now() + sum.totalTime * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        document.getElementById("route-time").innerText = fmtTime(sum.totalTime);
+        document.getElementById("route-meta").innerText = `${fmtDist(sum.totalDistance)} · arrive ${arrive}`;
+
+        // Alternative route chips
+        const fastest = Math.min(...st.routes.map((x) => x.summary.totalTime));
+        document.getElementById("route-alts").innerHTML = st.routes.length < 2 ? "" : st.routes
+          .map((x, k) => `<button onclick="selectRoute(${k}, true)" class="shrink-0 px-3 py-1 rounded-lg text-xs font-semibold border ${k === i ? "bg-emerald-50 border-emerald-500 text-emerald-700" : "border-gray-300 text-gray-600"}">${x.summary.totalTime === fastest ? "Fastest" : "Route " + (k + 1)} · ${fmtTime(x.summary.totalTime)} · ${fmtDist(x.summary.totalDistance)}</button>`)
+          .join("");
+
+        // Step list (tap a step to jump to it on the map)
+        document.getElementById("route-steps").innerHTML = r.instructions
+          .map((ins, k) => `<li onclick="focusStep(${k})" class="py-2 flex items-center gap-3 cursor-pointer"><span class="text-xl w-7 text-center">${stepArrow(ins)}</span><span class="flex-1 text-gray-800">${stepText(ins)}</span><span class="text-xs text-gray-500">${fmtDist(ins.distance)}</span></li>`)
+          .join("");
+
+        if (fit) {
+          const left = window.innerWidth > 768 ? 450 : 40;
+          map.fitBounds(L.polyline(r.coordinates).getBounds(), {
+            paddingTopLeft: [left, 60],
+            paddingBottomRight: [40, window.innerWidth > 768 ? 200 : 320],
+          });
         }
       }
 
-      function showRouteSummary(name, stats, lat, lng) {
-        document.getElementById("route-title").innerText = name;
-        document.getElementById("route-stats").innerText = stats;
-        document.getElementById("route-gmaps").href =
-          `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-        document.getElementById("route-summary").classList.remove("hidden");
+      function focusStep(k) {
+        const st = routingControl;
+        if (!st) return;
+        const r = st.routes[st.sel];
+        map.flyTo(r.coordinates[r.instructions[k].index], 17, { duration: 1 });
+      }
+
+      // --- Live navigation: GPS follow, next-turn banner, voice, auto-reroute ---
+      function toggleNav() {
+        navWatch === null ? startNav() : stopNav();
+      }
+
+      function startNav() {
+        if (!navigator.geolocation) return showToast("Geolocation is not supported by your browser.", "error");
+        spokenIdx = -1;
+        navWatch = navigator.geolocation.watchPosition(onNavPosition, () => showToast("Lost GPS signal.", "error"), {
+          enableHighAccuracy: true,
+          maximumAge: 2000,
+        });
+        document.getElementById("route-start").innerText = "End";
+        document.getElementById("nav-banner").classList.remove("hidden");
+        document.getElementById("route-steps").classList.add("hidden");
+      }
+
+      function stopNav() {
+        if (navWatch !== null) {
+          navigator.geolocation.clearWatch(navWatch);
+          navWatch = null;
+        }
+        if (accuracyCircle) {
+          map.removeLayer(accuracyCircle);
+          accuracyCircle = null;
+        }
+        if ("speechSynthesis" in window) speechSynthesis.cancel();
+        document.getElementById("nav-banner").classList.add("hidden");
+        document.getElementById("route-start").innerText = "Start";
+      }
+
+      function onNavPosition(pos) {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+        const here = L.latLng(lat, lng);
+        lastStart = { lat, lng };
+        if (userMarker) userMarker.setLatLng(here);
+        if (accuracyCircle) accuracyCircle.setLatLng(here).setRadius(accuracy);
+        else accuracyCircle = L.circle(here, { radius: accuracy, color: "#2563eb", weight: 1, fillOpacity: 0.1 }).addTo(map);
+
+        const st = routingControl;
+        if (!st || !st.routes.length) return;
+        const r = st.routes[st.sel];
+
+        if (map.distance(here, [lastDest.lat, lastDest.lng]) < 30) {
+          showToast("You have arrived at " + lastDest.name, "success");
+          speak("You have arrived");
+          stopNav();
+          return;
+        }
+
+        // Nearest point on the route = progress; far from it = off route
+        let best = 0, bestD = Infinity;
+        r.coordinates.forEach((c, k) => {
+          const d = map.distance(here, c);
+          if (d < bestD) { bestD = d; best = k; }
+        });
+        if (bestD > 80 && Date.now() - lastReroute > 15000) {
+          lastReroute = Date.now();
+          showToast("Off route — rerouting…", "info");
+          requestRoutes();
+          return;
+        }
+
+        const ins = r.instructions.find((x) => x.index > best) || r.instructions[r.instructions.length - 1];
+        const d = map.distance(here, r.coordinates[ins.index]);
+        document.getElementById("nav-arrow").innerText = stepArrow(ins);
+        document.getElementById("nav-dist").innerText = fmtDist(d);
+        document.getElementById("nav-text").innerText = stepText(ins);
+        if (d < 150 && spokenIdx !== ins.index) {
+          spokenIdx = ins.index;
+          speak(`In ${fmtDist(d)}, ${stepText(ins)}`);
+        }
+        map.setView(here, Math.max(map.getZoom(), 16), { animate: true });
       }
 
       function clearRoute() {
-        document.getElementById("route-summary").classList.add("hidden");
+        stopNav();
         if (routingControl) {
           if (routingControl._fallbackLine) {
             map.removeLayer(routingControl._fallbackLine);
           }
-          map.removeControl(routingControl);
+          (routingControl.layers || []).forEach((l) => map.removeLayer(l));
           routingControl = null;
         }
         if (userMarker) {
@@ -1068,6 +1272,7 @@
           userMarker = null;
         }
         document.getElementById("clear-route-btn").classList.add("hidden");
+        document.getElementById("route-summary").classList.add("hidden");
 
         if (markers.length > 0) {
           const group = new L.featureGroup(markers);
