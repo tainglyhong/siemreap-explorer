@@ -308,6 +308,7 @@
         <label class="text-xs font-bold text-gray-500 uppercase">Location</label>
         <input id="pm-coords" oninput="onCoordsInput(this.value)" class="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="Paste a Google Maps link (short links OK) or 13.4125, 103.8670" />
         <p id="pm-status" class="hidden text-xs mt-1.5 font-medium"></p>
+        <button onclick="setResolver()" class="text-xs text-gray-400 underline mt-1">⚙ Link resolver (for short Google links)</button>
         <div class="flex gap-2 mt-2 mb-4">
           <button onclick="startPickLocation()" class="flex-1 border border-emerald-600 text-emerald-700 text-sm font-semibold py-2 rounded-xl">📍 Pick on map</button>
           <button onclick="useMyLocation()" class="flex-1 border border-gray-300 text-gray-700 text-sm font-semibold py-2 rounded-xl">🎯 My location</button>
@@ -1381,6 +1382,14 @@
             return [r.url, await r.text()];
           },
         ];
+        // Your own resolver (Cloudflare Worker) is the most reliable, so it goes first when set
+        let resolver = "";
+        try { resolver = localStorage.getItem("sr-resolver") || ""; } catch (e) {}
+        if (resolver)
+          attempts.unshift(async () => {
+            const j = await (await fetch(resolver + (resolver.includes("?") ? "&" : "?") + "url=" + encodeURIComponent(url))).json();
+            return [j.url, ""];
+          });
         for (const attempt of attempts) {
           try {
             const [finalUrl, body] = await timeout(attempt(), 9000);
@@ -1417,6 +1426,15 @@
         if (!nameEl.value.trim() && r.name) nameEl.value = r.name;
         setPmStatus(`Location found${r.name ? ": " + r.name : ""} ✓`, true);
         return true;
+      }
+
+      function setResolver() {
+        let cur = "";
+        try { cur = localStorage.getItem("sr-resolver") || ""; } catch (e) {}
+        const v = prompt("Paste your Cloudflare Worker URL (leave empty to remove):", cur);
+        if (v === null) return;
+        try { localStorage.setItem("sr-resolver", v.trim()); } catch (e) {}
+        showToast(v.trim() ? "Link resolver saved." : "Link resolver removed.", "success");
       }
 
       function onCoordsInput(v) {

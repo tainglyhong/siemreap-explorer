@@ -1,5 +1,5 @@
 // Offline support: precache the app shell, then cache tiles/icons/libs as they are used
-const CACHE = "siem-reap-pwa-v4";
+const CACHE = "siem-reap-pwa-v5";
 const SHELL = [
   "./",
   "./index.html",
@@ -14,45 +14,22 @@ const SHELL = [
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(
-    caches
-      .open(CACHE)
-      .then((c) =>
-        Promise.all(
-          SHELL.map((u) =>
-            c
-              .add(
-                new Request(u, {
-                  mode: u.startsWith("http") ? "no-cors" : "same-origin",
-                }),
-              )
-              .catch(() => {}),
-          ),
-        ),
-      ),
+    caches.open(CACHE).then((c) =>
+      Promise.all(SHELL.map((u) => c.add(new Request(u, { mode: u.startsWith("http") ? "no-cors" : "same-origin" })).catch(() => {}))),
+    ),
   );
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    caches
-      .keys()
-      .then((ks) =>
-        Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))),
-      )
-      .then(() => clients.claim()),
+    caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => clients.claim()),
   );
 });
 
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   // Never cache live routing calls
-  if (
-    req.method !== "GET" ||
-    req.url.includes("router.project-osrm.org") ||
-    req.url.includes("routing.openstreetmap.de") ||
-    /allorigins|corsproxy|codetabs/.test(req.url)
-  )
-    return;
+  if (req.method !== "GET" || (req.url.includes("router.project-osrm.org") || req.url.includes("routing.openstreetmap.de") || /allorigins|corsproxy|codetabs|workers\.dev/.test(req.url))) return;
   // Cache-first (stale-while-revalidate) so it works with no signal
   e.respondWith(
     caches.match(req).then((hit) => {
